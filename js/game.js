@@ -472,6 +472,14 @@
       AudioSfx.unlock();
     });
     $('btnPhoto').addEventListener('click', function () { AudioSfx.unlock(); openModal(); });
+    $('btnMenu').addEventListener('click', function () {
+      AudioSfx.unlock();
+      if (S && S.status === 'playing') {
+        if (!window.confirm('返回菜单将结束本局，确定吗？')) return;
+      }
+      S = null;
+      showMenu();
+    });
 
     $('overlayRoot').addEventListener('click', function (e) {
       var btn = e.target.closest ? e.target.closest('[data-act]') : null;
@@ -538,4 +546,5 @@
     init();
   }
 })();
+
 
