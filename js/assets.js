@@ -144,38 +144,95 @@
   var state = { imports: [], manifest: [], ready: false, listeners: [] };
   var placeholders = buildPlaceholders();
   var preloadTasks = { total: 0, loaded: 0, failed: 0 };
+  var sharedFaceCache = {}; // URL -> { image, state }；每个共享牌面 URL 只创建一个 Image
+  var SHARED_PRELOAD_BATCH_SIZE = 2;
+  var SHARED_PRELOAD_INTERVAL = 100;
+  var SHARED_LOAD_TIMEOUT = 7000;
 
   function sharedFaceUrl(name) {
     return 'assets/photos/' + encodeURIComponent(name) + '?v=' + FACE_CACHE_VERSION;
   }
 
-  /* 后台预热共享牌面图：不阻塞 init，也不影响玩家立即开始游戏 */
-  function preloadSharedFaces(urls) {
-    preloadTasks = { total: urls.length, loaded: 0, failed: 0 };
-    if (!urls.length) return;
-    console.log('[Assets] 牌面图预加载开始：' + urls.length + ' 张');
+  function settleSharedFace(item, state) {
+    if (!item || item.state !== 'pending') return false;
+    item.state = state;
+    if (item.timer) {
+      clearTimeout(item.timer);
+      item.timer = null;
+    }
+    var callback = item.settledCallback;
+    item.settledCallback = null;
+    if (callback) setTimeout(callback, 0);
+    return true;
+  }
 
-    setTimeout(function () {
-      urls.forEach(function (url) {
-        var img = new Image();
-        img.decoding = 'async';
-        img.onload = function () {
-          preloadTasks.loaded++;
-          console.log('[Assets] 牌面图进度：' + preloadTasks.loaded + '/' + preloadTasks.total +
-            (preloadTasks.failed ? '，失败 ' + preloadTasks.failed : ''));
-          if (preloadTasks.loaded + preloadTasks.failed === preloadTasks.total) {
-            console.log('[Assets] 牌面图预加载完成：成功 ' + preloadTasks.loaded +
-              '，失败 ' + preloadTasks.failed);
-          }
-        };
-        img.onerror = function () {
-          preloadTasks.failed++;
-          console.warn('[Assets] 牌面图加载失败：' + url);
-        };
-        /* 游戏牌面用 background-image 渲染；这里的 Image 仅负责提前下载并解码 */
-        img.src = url;
-      });
-    }, 0);
+  function loadSharedFace(url, onSettled) {
+    if (sharedFaceCache[url]) {
+      var cached = sharedFaceCache[url];
+      if (cached.state === 'pending') cached.settledCallback = onSettled;
+      else setTimeout(onSettled, 0);
+      return;
+    }
+
+    var img = new Image(800, 600); // 固定宽高，避免后续解码布局抖动
+    var item = { image: img, state: 'pending', timer: null, settledCallback: onSettled };
+    sharedFaceCache[url] = item;
+    img.decoding = 'async';
+    img.loading = 'eager';
+    img.onload = function () {
+      if (!settleSharedFace(item, 'loaded')) return;
+      preloadTasks.loaded++;
+      console.log('[Assets] 牌面图进度：' + preloadTasks.loaded + '/' + preloadTasks.total +
+        (preloadTasks.failed ? '，失败 ' + preloadTasks.failed : ''));
+      if (preloadTasks.loaded + preloadTasks.failed === preloadTasks.total) {
+        console.log('[Assets] 牌面图预加载完成：成功 ' + preloadTasks.loaded +
+          '，失败 ' + preloadTasks.failed);
+      }
+    };
+    var failSharedFace = function () {
+      if (!settleSharedFace(item, 'failed')) return;
+      preloadTasks.failed++;
+      console.warn('[Assets] 牌面图加载失败或超时：' + url);
+      if (preloadTasks.loaded + preloadTasks.failed === preloadTasks.total) {
+        console.log('[Assets] 牌面图预加载完成：成功 ' + preloadTasks.loaded +
+          '，失败 ' + preloadTasks.failed);
+      }
+    };
+    img.onerror = failSharedFace;
+    item.timer = setTimeout(function () {
+      failSharedFace();
+    }, SHARED_LOAD_TIMEOUT);
+    img.src = url;
+  }
+
+  /* 后台预热共享牌面图：每批 2 张、批间 100ms，不阻塞 init 和玩家交互 */
+  function preloadSharedFaces(urls) {
+    /* 去重后进入队列，避免本地导入/重复清单导致同一 URL 建两个 Image */
+    var queue = [];
+    var seen = {};
+    for (var i = 0; i < urls.length; i++) {
+      if (!seen[urls[i]] && !sharedFaceCache[urls[i]]) {
+        seen[urls[i]] = true;
+        queue.push(urls[i]);
+      }
+    }
+    preloadTasks = { total: queue.length, loaded: 0, failed: 0 };
+    if (!queue.length) return;
+    console.log('[Assets] 牌面图预加载开始：' + queue.length + ' 张');
+
+    var cursor = 0;
+    function loadNextBatch() {
+      if (cursor >= queue.length) return;
+      var batch = queue.slice(cursor, cursor + SHARED_PRELOAD_BATCH_SIZE);
+      cursor += batch.length;
+      var remaining = batch.length;
+      var releaseBatchSlot = function () {
+        remaining--;
+        if (remaining === 0) setTimeout(loadNextBatch, SHARED_PRELOAD_INTERVAL);
+      };
+      batch.forEach(function (url) { loadSharedFace(url, releaseBatchSlot); });
+    }
+    setTimeout(loadNextBatch, 60);
   }
 
   function notify() {
@@ -255,6 +312,10 @@
     importFiles: importFiles,
     resetImports: resetImports,
     onChange: function (fn) { state.listeners.push(fn); },
-    isReady: function () { return state.ready; }
+    isReady: function () { return state.ready; },
+    getSharedImage: function (url) {
+      var item = sharedFaceCache[url];
+      return item && item.state === 'loaded' ? item.image : null;
+    }
   };
 })(window);

@@ -35,6 +35,12 @@
   var rewardEntries = [];      // 预加载状态 + 可复用 <img> 对象
   var lastRewardIndex = -1;    // 上一次展示编号，避免连续重复
   var rewardPreload = { total: 0, loaded: 0, failed: 0 };
+  var galleryPhotoObserver = null; // 图鉴滚动懒挂载；关闭弹窗时释放
+
+  /* 预加载节流参数：每批最多 2 张，批间休息 100ms，单张最多等 7 秒 */
+  var REWARD_PRELOAD_BATCH_SIZE = 2;
+  var REWARD_PRELOAD_INTERVAL = 100;
+  var REWARD_LOAD_TIMEOUT = 7000;
 
   function versionedRewardUrl(url) {
     return url + (url.indexOf('?') >= 0 ? '&' : '?') + 'v=' + REWARD_CACHE_VERSION;
@@ -59,9 +65,29 @@
     }
   }
 
+  function clearRewardTimeout(entry) {
+    if (entry.timeoutTimer) {
+      clearTimeout(entry.timeoutTimer);
+      entry.timeoutTimer = null;
+    }
+  }
+
+  /* 每个 entry 只允许从 pending 进入 loaded/failed 一次，防止超时和 error 双计数 */
+  function settleRewardEntry(entry, state) {
+    if (!entry || entry.state !== 'pending') return false;
+    entry.state = state;
+    clearRewardTimeout(entry);
+    if (state === 'loaded') rewardPreload.loaded++;
+    else rewardPreload.failed++;
+
+    var callback = entry.settledCallback;
+    entry.settledCallback = null;
+    if (callback) setTimeout(callback, 0); // 本批结束后再排队下一批
+    return true;
+  }
+
   function handleRewardLoad(entry) {
-    entry.state = 'loaded';
-    rewardPreload.loaded++;
+    if (!settleRewardEntry(entry, 'loaded')) return;
     console.log('[RewardImages] 进度：' + rewardPreload.loaded + '/' + rewardPreload.total +
       (rewardPreload.failed ? '，失败 ' + rewardPreload.failed : ''));
     if (rewardPreload.loaded + rewardPreload.failed === rewardPreload.total) {
@@ -70,12 +96,14 @@
     }
     /* 若玩家在预热完成前就打开了弹窗，图片到点后自动替换文字占位 */
     if (claimState && claimState.reward === entry && !claimState.done) showRewardImage(entry);
+    var previewStage = $('albumPreviewStage');
+    if (previewStage) previewStage.replaceChildren(entry.image);
+    refreshGalleryPhotos(entry); // 图鉴若已打开，直接复用同一个解码完成的 Image
   }
 
   function handleRewardError(entry) {
-    entry.state = 'failed';
-    rewardPreload.failed++;
-    console.warn('[RewardImages] 加载失败：' + entry.url);
+    if (!settleRewardEntry(entry, 'failed')) return;
+    console.warn('[RewardImages] 加载失败或超时：' + entry.url);
     /* 当前弹窗正在等这张图时才重试；最多自动换图 2 次 */
     if (claimState && claimState.reward === entry && !claimState.done) selectRewardCandidate(entry);
   }
@@ -94,6 +122,22 @@
     return img;
   }
 
+  /* 发起唯一一次网络请求；后续弹窗、图鉴、预览全部复用 entry.image */
+  function beginRewardImage(entry, onSettled) {
+    if (entry.image) {
+      if (entry.state === 'pending') entry.settledCallback = onSettled;
+      else setTimeout(onSettled, 0);
+      return;
+    }
+
+    createRewardImage(entry);
+    entry.settledCallback = onSettled;
+    entry.timeoutTimer = setTimeout(function () {
+      handleRewardError(entry);
+    }, REWARD_LOAD_TIMEOUT);
+    entry.image.src = entry.url;
+  }
+
   /* 页面初始化时静默预热：不在界面显示进度，也不阻塞首屏渲染 */
   function preloadRewardImages() {
     if (rewardEntries.length) return;
@@ -102,11 +146,28 @@
     });
     rewardPreload = { total: rewardEntries.length, loaded: 0, failed: 0 };
     console.log('[RewardImages] 预加载开始：' + rewardPreload.total + ' 张');
-    setTimeout(function () {
-      rewardEntries.forEach(function (entry) {
-        createRewardImage(entry).src = entry.url;
-      });
-    }, 0);
+
+    var cursor = 0;
+    function loadNextBatch() {
+      if (cursor >= rewardEntries.length) {
+        console.log('[RewardImages] 预加载完成：成功 ' + rewardPreload.loaded +
+          '，失败 ' + rewardPreload.failed);
+        return;
+      }
+
+      var batch = rewardEntries.slice(cursor, cursor + REWARD_PRELOAD_BATCH_SIZE);
+      cursor += batch.length;
+      var remaining = batch.length;
+      var releaseBatchSlot = function () {
+        remaining--;
+        if (remaining === 0) setTimeout(loadNextBatch, REWARD_PRELOAD_INTERVAL);
+      };
+
+      /* 一批固定最多两张；等这两张成功/失败/超时后，才隔 100ms 发下一批 */
+      batch.forEach(function (entry) { beginRewardImage(entry, releaseBatchSlot); });
+    }
+
+    setTimeout(loadNextBatch, 60);
   }
 
   function pickRewardEntry(list) {
@@ -131,7 +192,7 @@
     }
 
     var loaded = rewardEntries.filter(function (entry) { return entry.state === 'loaded'; });
-    var pending = rewardEntries.filter(function (entry) { return entry.state === 'pending'; });
+    var pending = rewardEntries.filter(function (entry) { return entry.state === 'pending' && entry.image; });
     var selected = pickRewardEntry(loaded) || pickRewardEntry(pending);
     if (!selected) {
       showRewardFallback();
@@ -528,6 +589,84 @@
     return null;
   }
 
+  function galleryPhotoObserverRoot() {
+    var root = $('galleryRoot');
+    return root && root.querySelector('.gallery-scroll');
+  }
+
+  function isRewardImagePinned(entry) {
+    if (!entry || !entry.image) return false;
+    if (claimState && claimState.reward === entry) return true;
+    var preview = document.querySelector('#galleryRoot .album-preview');
+    return !!(preview && preview.contains(entry.image));
+  }
+
+  /* 只把全局缓存里已存在的 Image 节点搬进图鉴；这里绝不重新设置 src */
+  function mountCachedRewardPhoto(entry, holder) {
+    if (!entry || !holder) return;
+    var badge = document.createElement('span');
+    badge.className = 'album-state';
+    badge.textContent = '已点亮';
+
+    if (entry.state === 'loaded') {
+      holder.innerHTML = '';
+      holder.appendChild(entry.image);
+      holder.appendChild(badge);
+      return;
+    }
+
+    if (entry.state === 'failed') {
+      holder.innerHTML = '<div class="reward-fallback"><b>图片暂不可用</b><span>收集进度不受影响</span></div>';
+    } else {
+      holder.innerHTML = '<div class="reward-loading">图片加载中...</div>';
+    }
+    holder.appendChild(badge);
+  }
+
+  /* 刷新当前可见卡片的缓存图；preview/倒计时正在使用同一个节点时不抢占 */
+  function refreshGalleryPhotos() {
+    var root = $('galleryRoot');
+    if (!root || !root.classList.contains('show')) return;
+    var holders = root.querySelectorAll('[data-reward-media-id]');
+    for (var i = 0; i < holders.length; i++) {
+      var entry = rewardEntryByPhotoId(holders[i].dataset.rewardMediaId);
+      if (!entry || isRewardImagePinned(entry)) continue;
+      if (entry.state === 'loaded') mountCachedRewardPhoto(entry, holders[i]);
+    }
+  }
+
+  /* 图鉴只为已解锁卡建立壳；原图节点滚动到附近才挂载，未解锁永远不请求原图 */
+  function setupGalleryLazyPhotos() {
+    if (galleryPhotoObserver) {
+      galleryPhotoObserver.disconnect();
+      galleryPhotoObserver = null;
+    }
+
+    var holders = document.querySelectorAll('#galleryRoot .album-card.unlocked [data-reward-media-id]');
+    if (!holders.length) return;
+
+    /* 兜底环境：没有 IntersectionObserver 时直接挂载，仍不产生网络请求 */
+    if (!('IntersectionObserver' in window)) {
+      for (var i = 0; i < holders.length; i++) {
+        var directEntry = rewardEntryByPhotoId(holders[i].dataset.rewardMediaId);
+        mountCachedRewardPhoto(directEntry, holders[i]);
+      }
+      return;
+    }
+
+    galleryPhotoObserver = new IntersectionObserver(function (records) {
+      records.forEach(function (record) {
+        if (!record.isIntersecting) return;
+        var holder = record.target;
+        var entry = rewardEntryByPhotoId(holder.dataset.rewardMediaId);
+        mountCachedRewardPhoto(entry, holder);
+        galleryPhotoObserver.unobserve(holder);
+      });
+    }, { root: galleryPhotoObserverRoot(), rootMargin: '220px 0px' });
+
+    for (var j = 0; j < holders.length; j++) galleryPhotoObserver.observe(holders[j]);
+  }
+
   function renderGallery() {
     var count = unlockedPhotos.size;
     var completed = count === PHOTOS.length;
@@ -539,7 +678,7 @@
       if (unlocked) {
         cards +=
           '<button class="album-card unlocked" type="button" data-photo-id="' + photo.id + '" aria-label="查看 ' + photo.name + '">' +
-            '<span class="album-thumb" style="background-image:url(\'' + versionedRewardUrl(photo.url) + '\')">' +
+            '<span class="album-thumb lazy-photo" data-reward-media-id="' + photo.id + '">' +
               '<span class="album-state">已点亮</span>' +
             '</span>' +
             '<span class="album-name">' + photo.name + '</span>' +
@@ -582,6 +721,7 @@
     var root = $('galleryRoot');
     root.innerHTML = renderGallery();
     root.classList.add('show');
+    setupGalleryLazyPhotos();
 
     /* 打开图鉴即为“已读”：新解锁红点立刻消失，但数量角标保留 */
     var badge = $('albumBadge');
@@ -590,6 +730,10 @@
   }
 
   function closeAlbum() {
+    if (galleryPhotoObserver) {
+      galleryPhotoObserver.disconnect();
+      galleryPhotoObserver = null;
+    }
     var root = $('galleryRoot');
     root.innerHTML = '';
     root.classList.remove('show');
@@ -602,7 +746,11 @@
 
     /* 奖励图对象全局只创建一次；预览时复用它，避免重复下载/重复解码 */
     var entry = rewardEntryByPhotoId(photoId);
-    var media = entry && entry.image ? entry.image : '<div class="reward-loading">图片加载中...</div>';
+    var media = entry && entry.state === 'loaded' && entry.image
+      ? entry.image
+      : (entry && entry.state === 'failed'
+        ? '<div class="reward-fallback"><b>图片暂不可用</b><span>倒计时和道具不受影响</span></div>'
+        : '<div class="reward-loading">图片加载中...</div>');
     var oldPreview = root.querySelector('.album-preview');
     if (oldPreview) oldPreview.remove();
 
@@ -629,6 +777,7 @@
   function closePhotoPreview() {
     var preview = document.querySelector('#galleryRoot .album-preview');
     if (preview) preview.remove();
+    refreshGalleryPhotos(); // 把全局唯一的 Image 放回当前可见的图鉴卡片
   }
 
   /* ---------- 道具奖励：10 秒锁定后只给当前道具 +1 ---------- */
@@ -957,6 +1106,11 @@
           unlocked: Array.from(unlockedPhotos),
           storageKey: UNLOCKED_PHOTOS_KEY
         };
+      },
+      rewardCache: function () {
+        return rewardEntries.map(function (entry) {
+          return { id: entry.photoId, state: entry.state, cached: !!entry.image };
+        });
       },
       core: CORE
     };
