@@ -8,12 +8,12 @@
   var TOOL_NAMES = { undo: '撤销', shuffle: '洗牌', hint: '提示', restart: '重开' };
   var TOOL_ICONS = { undo: 'undo', shuffle: 'shuffle', hint: 'hint', restart: 'restart' };
 
-  /* 领取弹窗展示的 16 张照片；每张文件名固定，方便浏览器缓存 */
+  /* 领取弹窗展示的 17 张照片；每张文件名固定，方便浏览器缓存 */
   var REWARD_IMAGES = [];
-  for (var rewardIndex = 1; rewardIndex <= 16; rewardIndex++) {
+  for (var rewardIndex = 1; rewardIndex <= 17; rewardIndex++) {
     REWARD_IMAGES.push('assets/reward-images/reward-' + (rewardIndex < 10 ? '0' : '') + rewardIndex + '.jpg');
   }
-  var REWARD_CACHE_VERSION = '20260905a'; // 稳定版本号：图片内容更新时才改这里
+  var REWARD_CACHE_VERSION = '20260905d'; // 稳定版本号：新增第 17 张奖励图后更新
   var rewardEntries = [];      // 预加载状态 + 可复用 <img> 对象
   var lastRewardIndex = -1;    // 上一次展示编号，避免连续重复
   var rewardPreload = { total: 0, loaded: 0, failed: 0 };
