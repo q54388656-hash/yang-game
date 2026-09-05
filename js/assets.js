@@ -6,7 +6,7 @@
   var DB_NAME = 'yang-game-db';
   var STORE = 'photos';
   var THUMB = 256;
-  var FACE_CACHE_VERSION = '20260905b'; // 固定资源版本；恢复原图后更新，避免命中旧压缩图缓存
+  var FACE_CACHE_VERSION = '20260905c'; // 固定资源版本；恢复原图后更新，避免命中旧压缩图缓存
 
   /* 默认照片清单兜底：即使 manifest 请求被离线/旧缓存干扰，也保证优先使用照片 */
   var SHARED_PHOTOS = [
