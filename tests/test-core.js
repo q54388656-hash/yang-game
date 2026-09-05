@@ -43,7 +43,7 @@ function mkTile(id, face, x, y, layer, removed) {
   return { id, face, layer, x, y, rot: 0, removed: !!removed };
 }
 function mkState() {
-  return { diffKey: 'easy', faces: [], tiles: [], tray: [], history: [], moves: 0, status: 'playing', reason: '', toolUses: { undo: 5, shuffle: 5, hint: 5 }, rng: Math.random };
+  return { diffKey: 'easy', faces: [], tiles: [], tray: [], history: [], moves: 0, status: 'playing', reason: '', toolUses: { undo: 1, shuffle: 1, hint: 1, restart: 1 }, rng: Math.random };
 }
 
 /* 1. 结构校验：三种难度 */
@@ -70,6 +70,11 @@ section('1. 难度结构（总数/每类张数均为 3 的倍数、几何覆盖�
   const xs = s.tiles.map((t) => t.x), ys = s.tiles.map((t) => t.y);
   assert(Math.max(...xs) - Math.min(...xs) > 200, k + ' 横向应铺开 (>200)');
   assert(Math.max(...ys) - Math.min(...ys) > 120, k + ' 纵向应铺开 (>120)');
+  assert(
+    s.toolUses.undo === 0 && s.toolUses.shuffle === 0 &&
+    s.toolUses.hint === 0 && s.toolUses.restart === 0,
+    k + ' 四个道具初始次数都应为 0'
+  );
 });
 
 /* 2. 单一图案 → 必胜路径（连续消除直至胜利） */
@@ -125,13 +130,14 @@ section('4. 三消消除与撤销还原');
   assert(undoRes.ok, '撤销应成功');
   assert(s.tray.length === 2 && s.tray[0] === 0 && s.tray[1] === 1, '撤销应恢复卡槽 [0,1]');
   assert(CORE.tileById(s, 2).removed === false, '撤销应把 tile#2 放回场上');
-  assert(s.toolUses.undo === 4, '撤销次数应扣减');
+  assert(s.toolUses.undo === 0, '撤销次数应扣减');
 })();
 
 /* 5. 洗牌保持剩余图案数量分布 */
 section('5. 洗牌不改变数量分布');
 (function () {
   const s = CORE.createLevel('normal', makeFaces(16), mulberry(5));
+  s.toolUses.shuffle = 1;
   const before = {};
   s.tiles.forEach((t) => { if (!t.removed) before[t.face] = (before[t.face] || 0) + 1; });
   const beforeActive = CORE.activeCount(s);
@@ -144,7 +150,7 @@ section('5. 洗牌不改变数量分布');
   Object.keys(before).forEach((k) => { if (before[k] !== after[k]) same = false; });
   assert(same, '洗牌后每种剩余张数应一致');
   assert(CORE.activeCount(s) === beforeActive, '洗牌不改变场上张数');
-  assert(s.toolUses.shuffle >= 0, '洗牌次数已扣减');
+  assert(s.toolUses.shuffle === 0, '洗牌次数已扣减');
 })();
 
 /* 6. 提示：优先推荐能凑三消的牌 */
@@ -161,7 +167,7 @@ section('6. 提示优先三消 / 安全牌');
   s.tray = [0, 1];
   const res = CORE.hint(s);
   assert(res.ok && res.id === 2, '应推荐能凑三消的 tile#2，实际 ' + res.id);
-  assert(s.toolUses.hint === 4, '提示次数应扣减');
+  assert(s.toolUses.hint === 0, '提示次数应扣减');
 
   const s2 = mkState();
   s2.toolUses.hint = 1;

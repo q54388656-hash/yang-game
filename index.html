@@ -36,10 +36,10 @@
   </section>
 
   <nav id="toolbar">
-    <button class="tool" id="toolUndo"><span class="tool-ico">↩️</span>撤销<b class="badge" id="badgeUndo">5</b></button>
-    <button class="tool" id="toolShuffle"><span class="tool-ico">🔄</span>洗牌<b class="badge" id="badgeShuffle">5</b></button>
-    <button class="tool" id="toolHint"><span class="tool-ico">💡</span>提示<b class="badge" id="badgeHint">5</b></button>
-    <button class="tool" id="toolRestart"><span class="tool-ico">🔁</span>重开</button>
+    <button class="tool" id="toolUndo"><span class="tool-ico">↩️</span>撤销<b class="badge" id="badgeUndo">0</b></button>
+    <button class="tool" id="toolShuffle"><span class="tool-ico">🔄</span>洗牌<b class="badge" id="badgeShuffle">0</b></button>
+    <button class="tool" id="toolHint"><span class="tool-ico">💡</span>提示<b class="badge" id="badgeHint">0</b></button>
+    <button class="tool" id="toolRestart"><span class="tool-ico">🔁</span>重开<b class="badge" id="badgeRestart">0</b></button>
   </nav>
 </div>
 
@@ -47,6 +47,8 @@
 <div id="overlayRoot"></div>
 <!-- 照片弹窗 -->
 <div id="modalRoot"></div>
+<!-- 道具奖励弹窗：倒计时完成前强制锁定 -->
+<div id="claimRoot"></div>
 
 <script src="js/core.js"></script>
 <script src="js/assets.js"></script>

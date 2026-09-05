@@ -3,8 +3,9 @@
   'use strict';
 
   /* ---------- 常量与工具 ---------- */
-    var ORDER = ['easy', 'normal', 'hard'];
+  var ORDER = ['easy', 'normal', 'hard'];
   var DIFF_LABEL = { easy: '简单', normal: '普通', hard: '困难' };
+  var TOOL_NAMES = { undo: '撤销', shuffle: '洗牌', hint: '提示', restart: '重开' };
 
   function $(id) { return document.getElementById(id); }
 
@@ -14,6 +15,7 @@
 
   var S = null;            // 当前对局状态（来自 CORE）
   var toastTimer = null;
+  var claimState = null;   // 当前道具领取弹窗（含倒计时句柄）
 
   /* ---------- 布局与渲染 ---------- */
   function buildBoard() {
@@ -102,6 +104,7 @@
     setBadge('badgeUndo', u.undo, 'toolUndo');
     setBadge('badgeShuffle', u.shuffle, 'toolShuffle');
     setBadge('badgeHint', u.hint, 'toolHint');
+    setBadge('badgeRestart', u.restart, 'toolRestart');
   }
 
   function setBadge(id, n, toolId) {
@@ -190,6 +193,7 @@
     var modal = $('modalRoot');
     modal.innerHTML = '';
     modal.classList.remove('show');
+    hideClaim(true);
   }
 
   function facesInfo() {
@@ -308,6 +312,57 @@
     var modal = $('modalRoot');
     modal.innerHTML = '';
     modal.classList.remove('show');
+  }
+
+  /* ---------- 道具奖励：10 秒锁定后只给当前道具 +1 ---------- */
+  function hideClaim(silent) {
+    var root = $('claimRoot');
+    if (claimState && claimState.timer) clearInterval(claimState.timer);
+    claimState = null;
+    root.innerHTML = '';
+    root.classList.remove('show');
+    if (!silent) toast('获得1次道具机会');
+  }
+
+  function openClaim(kind) {
+    var root = $('claimRoot');
+    if (claimState) return;
+
+    /* 倒计时用绝对时间计算，后台切走后再回来也不会变成假 10 秒 */
+    claimState = { kind: kind, deadline: Date.now() + 10000, timer: null, done: false };
+    root.innerHTML =
+      '<div class="overlay reward">' +
+        '<div class="panel reward-panel">' +
+          '<h2>' + TOOL_NAMES[kind] + '道具</h2>' +
+          '<img class="reward-image" src="assets/reward-placeholder.jpg" alt="道具奖励占位图片">' +
+          '<p class="reward-tip">观看图片 <b id="claimSeconds">10</b> 秒后可领取</p>' +
+          '<button class="btn ghost" id="claimClose" disabled>倒计时结束后自动领取</button>' +
+        '</div>' +
+      '</div>';
+    root.classList.add('show');
+    AudioSfx.play('click');
+
+    var tick = function () {
+      if (!claimState) return;
+      var left = Math.max(0, Math.ceil((claimState.deadline - Date.now()) / 1000));
+      var label = $('claimSeconds');
+      var button = $('claimClose');
+      if (label) label.textContent = String(left);
+      if (left > 0) return;
+
+      /* 只恢复当前点击的道具，不影响其它三个道具 */
+      claimState.done = true;
+      if (claimState.timer) clearInterval(claimState.timer);
+      if (S && S.toolUses) S.toolUses[claimState.kind] = (S.toolUses[claimState.kind] || 0) + 1;
+      var granted = claimState.kind;
+      hideClaim(false);
+      updateTools();
+      AudioSfx.play('tool');
+      if (!S) toast(TOOL_NAMES[granted] + '：获得1次道具机会');
+    };
+
+    claimState.timer = setInterval(tick, 100);
+    tick();
   }
 
   function onImport(files) {
@@ -445,6 +500,20 @@
     }
   }
 
+  /* 四个道具共用入口：数量不足时不直接执行，而是进入本道具的领取流程 */
+  function useTool(kind) {
+    if (!S || S.status !== 'playing') return;
+    if ((S.toolUses[kind] || 0) <= 0) { openClaim(kind); return; }
+    if (kind === 'restart') {
+      S.toolUses.restart--;
+      startLevel(S.diffKey);
+      return;
+    }
+    if (kind === 'undo') useUndo();
+    else if (kind === 'shuffle') useShuffle();
+    else if (kind === 'hint') useHint();
+  }
+
   /* ---------- 事件绑定 ---------- */
   function bindEvents() {
     var board = $('board');
@@ -455,14 +524,10 @@
       tileTap(parseInt(d.dataset.id, 10));
     });
 
-    $('toolUndo').addEventListener('click', function () { AudioSfx.unlock(); useUndo(); });
-    $('toolShuffle').addEventListener('click', function () { AudioSfx.unlock(); useShuffle(); });
-    $('toolHint').addEventListener('click', function () { AudioSfx.unlock(); useHint(); });
-    $('toolRestart').addEventListener('click', function () {
-      AudioSfx.unlock();
-      if (S && S.status === 'playing') { if (window.confirm('确定重新开始本局吗？')) startLevel(S.diffKey); }
-      else if (S) startLevel(S.diffKey);
-    });
+    $('toolUndo').addEventListener('click', function () { AudioSfx.unlock(); useTool('undo'); });
+    $('toolShuffle').addEventListener('click', function () { AudioSfx.unlock(); useTool('shuffle'); });
+    $('toolHint').addEventListener('click', function () { AudioSfx.unlock(); useTool('hint'); });
+    $('toolRestart').addEventListener('click', function () { AudioSfx.unlock(); useTool('restart'); });
 
     $('btnMute').addEventListener('click', function () {
       var muted = AudioSfx.toggleMute();
@@ -490,6 +555,24 @@
       if (e.target === this) closeModal();
     });
 
+    /* 奖励浮层吞掉全部点击：倒计时期间不能点背景、按钮或穿过浮层操作牌面 */
+    $('claimRoot').addEventListener('click', function (e) {
+      e.preventDefault();
+      e.stopPropagation();
+      if (claimState && claimState.done) hideClaim(false);
+    });
+    $('claimRoot').addEventListener('contextmenu', function (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    });
+
+    /* 倒计时未结束时屏蔽键盘路径，避免 Tab + Enter 触发下层界面 */
+    document.addEventListener('keydown', function (e) {
+      if (!claimState || claimState.done) return;
+      e.preventDefault();
+      e.stopPropagation();
+    }, true);
+
     window.addEventListener('resize', fit);
   }
 
@@ -508,7 +591,12 @@
           moves: S.moves,
           status: S.status,
           reason: S.reason,
-          toolUses: { undo: S.toolUses.undo, shuffle: S.toolUses.shuffle, hint: S.toolUses.hint }
+          toolUses: {
+            undo: S.toolUses.undo,
+            shuffle: S.toolUses.shuffle,
+            hint: S.toolUses.hint,
+            restart: S.toolUses.restart
+          }
         };
       },
       isCovered: function (id) { return S ? CORE.isCovered(S, CORE.tileById(S, id)) : false; },

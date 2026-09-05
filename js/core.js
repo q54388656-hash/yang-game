@@ -4,9 +4,10 @@
   'use strict';
 
   var DIFFS = {
-    easy:   { label: '简单', layers: [[8,4],[6,3],[4,2]],                  target: 3.0, tools: { undo: 5, shuffle: 5, hint: 5 } },
-    normal: { label: '普通', layers: [[8,5],[7,4],[6,3],[4,2]],            target: 3.4, tools: { undo: 5, shuffle: 5, hint: 5 } },
-    hard:   { label: '困难', layers: [[9,5],[8,4],[7,3],[5,2]],            target: 3.2, tools: { undo: 5, shuffle: 5, hint: 5 } }
+    /* 四个道具初始均不赠送；玩家可通过弹窗逐次领取 */
+    easy:   { label: '简单', layers: [[8,4],[6,3],[4,2]],                  target: 3.0, tools: { undo: 0, shuffle: 0, hint: 0, restart: 0 } },
+    normal: { label: '普通', layers: [[8,5],[7,4],[6,3],[4,2]],            target: 3.4, tools: { undo: 0, shuffle: 0, hint: 0, restart: 0 } },
+    hard:   { label: '困难', layers: [[9,5],[8,4],[7,3],[5,2]],            target: 3.2, tools: { undo: 0, shuffle: 0, hint: 0, restart: 0 } }
   };
   var TRAY_SIZE = 7;
 
@@ -124,7 +125,12 @@
       moves: 0,
       status: 'playing',   // playing | win | lose
       reason: '',
-      toolUses: { undo: diff.tools.undo, shuffle: diff.tools.shuffle, hint: diff.tools.hint },
+      toolUses: {
+        undo: diff.tools.undo,
+        shuffle: diff.tools.shuffle,
+        hint: diff.tools.hint,
+        restart: diff.tools.restart
+      },
       rng: rng
     };
   }
