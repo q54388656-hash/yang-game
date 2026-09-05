@@ -6,7 +6,7 @@
   var DB_NAME = 'yang-game-db';
   var STORE = 'photos';
   var THUMB = 256;
-  var FACE_CACHE_VERSION = '20260905a'; // 固定资源版本，便于浏览器稳定命中 HTTP 缓存
+  var FACE_CACHE_VERSION = '20260905b'; // 固定资源版本；恢复原图后更新，避免命中旧压缩图缓存
 
   /* 内置占位：田园可爱表情 + 柔和底色（内联 SVG data URI，任何情况可玩） */
   var PLACEHOLDERS = [

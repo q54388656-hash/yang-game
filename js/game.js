@@ -339,8 +339,7 @@
         '<div class="panel">' +
           '<div class="logo">🐑</div>' +
           '<h1>叠叠羊</h1>' +
-          '<p class="sub">羊了个羊同款 · 休闲三消小游戏</p>' +
-          '<div class="rules">' +
+    '<div class="rules">' +
             '<p>1. 点击图案，收进下方卡槽</p>' +
             '<p>2. 集齐 3 个相同图案自动消除</p>' +
             '<p>3. 清空全场获胜；卡槽 7 格满则失败</p>' +
