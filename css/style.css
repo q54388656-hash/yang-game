@@ -375,14 +375,35 @@ h2 .ico { width: 22px; height: 22px; color: var(--ios-blue); }
 
 /* 道具领取弹窗 */
 .reward-panel { width: min(92vw, 348px); padding-top: 20px; }
+.reward-stage {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  overflow: hidden;
+  border-radius: 22px;
+  background: linear-gradient(180deg, #f2f4f7, #e8edf4);
+  border: 1px solid rgba(255,255,255,.68);
+  box-shadow: 0 14px 32px rgba(15,23,42,.12);
+}
+.reward-loading, .reward-fallback {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  gap: 6px;
+  text-align: center;
+  color: var(--ios-subtext);
+  font-size: 14px;
+  font-weight: 600;
+}
+.reward-fallback { background: #eef1f5; }
+.reward-fallback span { font-size: 12px; font-weight: 500; color: #8e8e93; }
 .reward-image {
   display: block;
   width: 100%;
-  aspect-ratio: 4 / 3;
+  height: 100%;
   object-fit: cover;
-  border-radius: 22px;
-  border: 1px solid rgba(255,255,255,.68);
-  box-shadow: 0 14px 32px rgba(15,23,42,.12);
+  border-radius: inherit;
   pointer-events: none;
   user-select: none;
 }

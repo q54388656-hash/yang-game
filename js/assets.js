@@ -6,6 +6,7 @@
   var DB_NAME = 'yang-game-db';
   var STORE = 'photos';
   var THUMB = 256;
+  var FACE_CACHE_VERSION = '20260905a'; // 固定资源版本，便于浏览器稳定命中 HTTP 缓存
 
   /* 内置占位：田园可爱表情 + 柔和底色（内联 SVG data URI，任何情况可玩） */
   var PLACEHOLDERS = [
@@ -119,7 +120,8 @@
 
   /* ---------- manifest（共享照片） ---------- */
   function loadManifest() {
-    return fetch('assets/manifest.json', { cache: 'no-store' })
+    /* manifest 本身也走 HTTP 缓存；部署内容通过仓库版本更新 */
+    return fetch('assets/manifest.json', { cache: 'force-cache' })
       .then(function (r) { if (!r.ok) throw new Error('bad'); return r.json(); })
       .then(function (j) {
         if (!j || !Array.isArray(j.photos)) throw new Error('bad');
@@ -131,6 +133,40 @@
   /* ---------- 对外 API ---------- */
   var state = { imports: [], manifest: [], ready: false, listeners: [] };
   var placeholders = buildPlaceholders();
+  var preloadTasks = { total: 0, loaded: 0, failed: 0 };
+
+  function sharedFaceUrl(name) {
+    return 'assets/photos/' + encodeURIComponent(name) + '?v=' + FACE_CACHE_VERSION;
+  }
+
+  /* 后台预热共享牌面图：不阻塞 init，也不影响玩家立即开始游戏 */
+  function preloadSharedFaces(urls) {
+    preloadTasks = { total: urls.length, loaded: 0, failed: 0 };
+    if (!urls.length) return;
+    console.log('[Assets] 牌面图预加载开始：' + urls.length + ' 张');
+
+    setTimeout(function () {
+      urls.forEach(function (url) {
+        var img = new Image();
+        img.decoding = 'async';
+        img.onload = function () {
+          preloadTasks.loaded++;
+          console.log('[Assets] 牌面图进度：' + preloadTasks.loaded + '/' + preloadTasks.total +
+            (preloadTasks.failed ? '，失败 ' + preloadTasks.failed : ''));
+          if (preloadTasks.loaded + preloadTasks.failed === preloadTasks.total) {
+            console.log('[Assets] 牌面图预加载完成：成功 ' + preloadTasks.loaded +
+              '，失败 ' + preloadTasks.failed);
+          }
+        };
+        img.onerror = function () {
+          preloadTasks.failed++;
+          console.warn('[Assets] 牌面图加载失败：' + url);
+        };
+        /* 游戏牌面用 background-image 渲染；这里的 Image 仅负责提前下载并解码 */
+        img.src = url;
+      });
+    }, 0);
+  }
 
   function notify() {
     for (var i = 0; i < state.listeners.length; i++) {
@@ -147,7 +183,7 @@
     for (i = 0; i < state.manifest.length; i++) {
       var name = state.manifest[i];
       var clean = name.replace(/\.[a-z0-9]+$/i, '').replace(/[_-]+/g, ' ');
-      faces.push({ id: 'shared_' + name, name: clean, kind: 'shared', url: 'assets/photos/' + encodeURIComponent(name) });
+      faces.push({ id: 'shared_' + name, name: clean, kind: 'shared', url: sharedFaceUrl(name) });
     }
     for (i = 0; i < placeholders.length; i++) faces.push(placeholders[i]);
     return faces;
@@ -164,6 +200,8 @@
       state.imports = imports;
       state.manifest = res[1];
       state.ready = true;
+      /* 只预热共享照片；本机导入是大体积 DataURL，按需解码更稳 */
+      preloadSharedFaces(state.manifest.map(sharedFaceUrl));
       notify();
       return getFaces();
     });

@@ -13,7 +13,118 @@
   for (var rewardIndex = 1; rewardIndex <= 16; rewardIndex++) {
     REWARD_IMAGES.push('assets/reward-images/reward-' + (rewardIndex < 10 ? '0' : '') + rewardIndex + '.jpg');
   }
-  var lastRewardImage = ''; // 记录上一次展示的图片，避免连续重复
+  var REWARD_CACHE_VERSION = '20260905a'; // 稳定版本号：图片内容更新时才改这里
+  var rewardEntries = [];      // 预加载状态 + 可复用 <img> 对象
+  var lastRewardIndex = -1;    // 上一次展示编号，避免连续重复
+  var rewardPreload = { total: 0, loaded: 0, failed: 0 };
+
+  function versionedRewardUrl(url) {
+    return url + (url.indexOf('?') >= 0 ? '&' : '?') + 'v=' + REWARD_CACHE_VERSION;
+  }
+
+  function showRewardImage(entry) {
+    var stage = $('rewardStage');
+    if (!stage || !entry.image) return;
+    stage.replaceChildren(entry.image);
+  }
+
+  function showRewardLoading() {
+    var stage = $('rewardStage');
+    if (stage) stage.innerHTML = '<div class="reward-loading">图片加载中...</div>';
+  }
+
+  function showRewardFallback() {
+    var stage = $('rewardStage');
+    if (stage) {
+      stage.innerHTML =
+        '<div class="reward-fallback"><b>图片暂时无法加载</b><span>倒计时和领取道具不受影响</span></div>';
+    }
+  }
+
+  function handleRewardLoad(entry) {
+    entry.state = 'loaded';
+    rewardPreload.loaded++;
+    console.log('[RewardImages] 进度：' + rewardPreload.loaded + '/' + rewardPreload.total +
+      (rewardPreload.failed ? '，失败 ' + rewardPreload.failed : ''));
+    if (rewardPreload.loaded + rewardPreload.failed === rewardPreload.total) {
+      console.log('[RewardImages] 预加载完成：成功 ' + rewardPreload.loaded +
+        '，失败 ' + rewardPreload.failed);
+    }
+    /* 若玩家在预热完成前就打开了弹窗，图片到点后自动替换文字占位 */
+    if (claimState && claimState.reward === entry && !claimState.done) showRewardImage(entry);
+  }
+
+  function handleRewardError(entry) {
+    entry.state = 'failed';
+    rewardPreload.failed++;
+    console.warn('[RewardImages] 加载失败：' + entry.url);
+    /* 当前弹窗正在等这张图时才重试；最多自动换图 2 次 */
+    if (claimState && claimState.reward === entry && !claimState.done) selectRewardCandidate(entry);
+  }
+
+  function createRewardImage(entry) {
+    /* 每张奖励图只创建一次 Image；弹窗反复打开时直接复用同一个 DOM 对象 */
+    var img = new Image(800, 600);
+    img.className = 'reward-image';
+    img.decoding = 'async';
+    img.loading = 'eager';
+    img.alt = '道具奖励照片';
+    img.dataset.rewardId = String(entry.id);
+    img.addEventListener('load', function () { handleRewardLoad(entry); });
+    img.addEventListener('error', function () { handleRewardError(entry); });
+    entry.image = img;
+    return img;
+  }
+
+  /* 页面初始化时静默预热：不在界面显示进度，也不阻塞首屏渲染 */
+  function preloadRewardImages() {
+    if (rewardEntries.length) return;
+    rewardEntries = REWARD_IMAGES.map(function (url, id) {
+      return { id: id, url: versionedRewardUrl(url), state: 'pending', image: null };
+    });
+    rewardPreload = { total: rewardEntries.length, loaded: 0, failed: 0 };
+    console.log('[RewardImages] 预加载开始：' + rewardPreload.total + ' 张');
+    setTimeout(function () {
+      rewardEntries.forEach(function (entry) {
+        createRewardImage(entry).src = entry.url;
+      });
+    }, 0);
+  }
+
+  function pickRewardEntry(list) {
+    if (!list.length) return null;
+    var choices = list.filter(function (entry) { return entry.id !== lastRewardIndex; });
+    if (!choices.length) choices = list;
+    return choices[Math.floor(Math.random() * choices.length)];
+  }
+
+  /* 优先选已加载完成的图；没有则允许用还在加载的图，图片到点后自动替换占位 */
+  function selectRewardCandidate(failedEntry) {
+    if (!claimState || claimState.done) return;
+    if (failedEntry && claimState.reward !== failedEntry) return;
+
+    if (failedEntry) {
+      claimState.fallbackTries++;
+      console.warn('[RewardImages] 自动换图第 ' + claimState.fallbackTries + ' 次');
+      if (claimState.fallbackTries > 2) {
+        showRewardFallback();
+        return;
+      }
+    }
+
+    var loaded = rewardEntries.filter(function (entry) { return entry.state === 'loaded'; });
+    var pending = rewardEntries.filter(function (entry) { return entry.state === 'pending'; });
+    var selected = pickRewardEntry(loaded) || pickRewardEntry(pending);
+    if (!selected) {
+      showRewardFallback();
+      return;
+    }
+
+    claimState.reward = selected;
+    lastRewardIndex = selected.id;
+    if (selected.state === 'loaded') showRewardImage(selected);
+    else showRewardLoading();
+  }
 
   function $(id) { return document.getElementById(id); }
 
@@ -345,27 +456,20 @@
     if (!silent) toast('获得1次道具机会');
   }
 
-  /* 随机挑选一张奖励照片；上一张已出现时先排除，保证体验更像“换一张” */
-  function pickRewardImage() {
-    if (!REWARD_IMAGES.length) return 'assets/reward-placeholder.jpg';
-    var choices = REWARD_IMAGES.filter(function (url) { return url !== lastRewardImage; });
-    var url = choices[Math.floor(Math.random() * choices.length)];
-    lastRewardImage = url;
-    return url;
-  }
-
   function openClaim(kind) {
     var root = $('claimRoot');
     if (claimState) return;
 
-    var rewardImage = pickRewardImage();
-    /* 倒计时用绝对时间计算，后台切走后再回来也不会变成假 10 秒 */
-    claimState = { kind: kind, deadline: Date.now() + 10000, timer: null, done: false };
+    /*
+     * 先建立弹窗和绝对时间倒计时，再选择图片。
+     * 图片网络慢/失败时只影响展示区，绝不影响 10 秒计时与道具发放。
+     */
+    claimState = { kind: kind, deadline: Date.now() + 10000, timer: null, done: false, reward: null, fallbackTries: 0 };
     root.innerHTML =
       '<div class="overlay reward">' +
         '<div class="panel reward-panel">' +
           '<h2>' + icon(TOOL_ICONS[kind]) + TOOL_NAMES[kind] + '道具</h2>' +
-          '<img class="reward-image" src="' + rewardImage + '" alt="道具奖励照片" decoding="async">' +
+          '<div class="reward-stage" id="rewardStage"><div class="reward-loading">图片加载中...</div></div>' +
           '<p class="reward-tip">观看图片 <b id="claimSeconds">10</b> 秒后可领取</p>' +
           '<button class="btn ghost" id="claimClose" disabled>倒计时结束后自动领取</button>' +
         '</div>' +
@@ -394,6 +498,7 @@
 
     claimState.timer = setInterval(tick, 100);
     tick();
+    selectRewardCandidate();
   }
 
   function onImport(files) {
@@ -645,6 +750,8 @@
     installHooks();
     var muted = AudioSfx.muted();
     setMuteIcon(muted);
+    /* 打开页面即预热：不 await，不阻塞菜单渲染和玩家操作 */
+    preloadRewardImages();
     Assets.onChange(function () {
       refreshMenuFaces();
       if (!S) showMenu();
