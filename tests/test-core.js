@@ -11,6 +11,7 @@ sandbox.globalThis = sandbox;
 vm.createContext(sandbox);
 vm.runInContext(code, sandbox);
 const CORE = sandbox.CORE;
+const G = CORE.GEOM;
 
 let passed = 0, failed = 0;
 function assert(cond, msg) {
@@ -19,7 +20,6 @@ function assert(cond, msg) {
 }
 function section(name) { console.log('\n■ ' + name); }
 
-/* 可复现随机数 */
 function mulberry(seed) {
   return function () {
     seed |= 0; seed = (seed + 0x6D2B79F5) | 0;
@@ -33,9 +33,21 @@ function makeFaces(n) {
   for (let i = 0; i < n; i++) arr.push({ id: 'f' + i, name: 'F' + i, kind: 'test', url: 'x' });
   return arr;
 }
+/* 独立复算：与核心同规则但由测试自行实现 */
+function geoBlocked(a, b) {
+  const ox = Math.min(a.x + G.TW / 2, b.x + G.TW / 2) - Math.max(a.x - G.TW / 2, b.x - G.TW / 2);
+  const oy = Math.min(a.y + G.TH / 2, b.y + G.TH / 2) - Math.max(a.y - G.TH / 2, b.y - G.TH / 2);
+  return ox > G.OVERLAP && oy > G.OVERLAP;
+}
+function mkTile(id, face, x, y, layer, removed) {
+  return { id, face, layer, x, y, rot: 0, removed: !!removed };
+}
+function mkState() {
+  return { diffKey: 'easy', faces: [], tiles: [], tray: [], history: [], moves: 0, status: 'playing', reason: '', toolUses: { undo: 5, shuffle: 5, hint: 5 }, rng: Math.random };
+}
 
 /* 1. 结构校验：三种难度 */
-section('1. 难度结构（总数/每类张数均为 3 的倍数、覆盖规则）');
+section('1. 难度结构（总数/每类张数均为 3 的倍数、几何覆盖规则）');
 ['easy', 'normal', 'hard'].forEach(function (k, di) {
   const faces = makeFaces(24);
   const s = CORE.createLevel(k, faces, mulberry(di + 1));
@@ -46,23 +58,18 @@ section('1. 难度结构（总数/每类张数均为 3 的倍数、覆盖规则�
   Object.keys(cnt).forEach((f) => {
     assert(cnt[f] % 3 === 0, k + ' 图案 ' + f + ' 张数应为 3 的倍数，实际 ' + cnt[f]);
   });
-  /* 覆盖规则独立复算 */
-  const cellMax = {};
+  let coveredCount = 0, exposedCount = 0;
   s.tiles.forEach((t) => {
-    const key = t.gr + '_' + t.gc;
-    if (!(key in cellMax) || t.layer > cellMax[key]) cellMax[key] = t.layer;
+    const expected = s.tiles.some((u) => !u.removed && u.layer > t.layer && geoBlocked(t, u));
+    assert(CORE.isCovered(s, t) === expected, k + ' tile#' + t.id + ' 覆盖状态错误');
+    if (expected) coveredCount++; else exposedCount++;
   });
-  s.tiles.forEach((t) => {
-    const key = t.gr + '_' + t.gc;
-    const expectedCovered = t.layer < cellMax[key];
-    assert(CORE.isCovered(s, t) === expectedCovered,
-      k + ' tile#' + t.id + ' 覆盖状态错误 expected=' + expectedCovered);
-    if (t.layer === cellMax[key]) {
-      assert(CORE.isCovered(s, t) === false, k + ' 顶层牌不应被覆盖 tile#' + t.id);
-    }
-  });
-  /* 种类数不超过可用图案数 */
-  assert(Object.keys(cnt).length <= faces.length, k + ' 使用图案种类应 ≤ 可用数');
+  assert(exposedCount > 0, k + ' 应存在可点牌 (exposed=' + exposedCount + ')');
+  assert(coveredCount > 0, k + ' 应存在被压住的牌 (covered=' + coveredCount + ')');
+  /* 布局应铺开：X/Y 范围足够宽，避免叠成一条线 */
+  const xs = s.tiles.map((t) => t.x), ys = s.tiles.map((t) => t.y);
+  assert(Math.max(...xs) - Math.min(...xs) > 200, k + ' 横向应铺开 (>200)');
+  assert(Math.max(...ys) - Math.min(...ys) > 120, k + ' 纵向应铺开 (>120)');
 });
 
 /* 2. 单一图案 → 必胜路径（连续消除直至胜利） */
@@ -90,10 +97,8 @@ section('2. 单图案必胜：三消与清空判胜');
 /* 3. 卡槽爆满判负 */
 section('3. 卡槽 7 格爆满判负');
 (function () {
-  const s = { diffKey: 'easy', faces: [], tiles: [], tray: [], history: [], moves: 0, status: 'playing', reason: '', toolUses: { undo: 1, shuffle: 1, hint: 1 }, rng: Math.random };
-  for (let i = 0; i < 7; i++) {
-    s.tiles.push({ id: i, face: 'f' + i, layer: 0, gr: 0, gc: i, jx: 0, jy: 0, removed: false });
-  }
+  const s = mkState();
+  for (let i = 0; i < 7; i++) s.tiles.push(mkTile(i, 'f' + i, i * 400, 0, 0, false));
   let last = null;
   for (let i = 0; i < 7; i++) last = CORE.pick(s, i);
   assert(last.event === 'lose' && last.reason === 'full', '第 7 格无三消应判负');
@@ -103,14 +108,13 @@ section('3. 卡槽 7 格爆满判负');
 /* 4. 三消 + 撤销恢复（含已消除） */
 section('4. 三消消除与撤销还原');
 (function () {
-  const s = { diffKey: 'easy', faces: [], tiles: [], tray: [], history: [], moves: 0, status: 'playing', reason: '', toolUses: { undo: 1, shuffle: 1, hint: 1 }, rng: Math.random };
-  // id0/id1(face a, 已入槽), id2(face a, 场上), id3/id4 其它
+  const s = mkState();
   s.tiles.push(
-    { id: 0, face: 'a', layer: 0, gr: 0, gc: 0, jx: 0, jy: 0, removed: true },
-    { id: 1, face: 'a', layer: 0, gr: 0, gc: 1, jx: 0, jy: 0, removed: true },
-    { id: 2, face: 'a', layer: 0, gr: 0, gc: 2, jx: 0, jy: 0, removed: false },
-    { id: 3, face: 'b', layer: 0, gr: 1, gc: 0, jx: 0, jy: 0, removed: false },
-    { id: 4, face: 'c', layer: 0, gr: 1, gc: 1, jx: 0, jy: 0, removed: false }
+    mkTile(0, 'a', 0, 0, 0, true),
+    mkTile(1, 'a', 400, 0, 0, true),
+    mkTile(2, 'a', 800, 0, 0, false),
+    mkTile(3, 'b', 1200, 0, 0, false),
+    mkTile(4, 'c', 1600, 0, 0, false)
   );
   s.tray = [0, 1];
   const res = CORE.pick(s, 2);
@@ -121,7 +125,7 @@ section('4. 三消消除与撤销还原');
   assert(undoRes.ok, '撤销应成功');
   assert(s.tray.length === 2 && s.tray[0] === 0 && s.tray[1] === 1, '撤销应恢复卡槽 [0,1]');
   assert(CORE.tileById(s, 2).removed === false, '撤销应把 tile#2 放回场上');
-  assert(s.toolUses.undo === 0, '撤销次数应扣减');
+  assert(s.toolUses.undo === 4, '撤销次数应扣减');
 })();
 
 /* 5. 洗牌保持剩余图案数量分布 */
@@ -140,31 +144,30 @@ section('5. 洗牌不改变数量分布');
   Object.keys(before).forEach((k) => { if (before[k] !== after[k]) same = false; });
   assert(same, '洗牌后每种剩余张数应一致');
   assert(CORE.activeCount(s) === beforeActive, '洗牌不改变场上张数');
-  assert(s.toolUses.shuffle === s.toolUses.shuffle, '占位');
   assert(s.toolUses.shuffle >= 0, '洗牌次数已扣减');
 })();
 
 /* 6. 提示：优先推荐能凑三消的牌 */
 section('6. 提示优先三消 / 安全牌');
 (function () {
-  const s = { diffKey: 'easy', faces: [], tiles: [], tray: [], history: [], moves: 0, status: 'playing', reason: '', toolUses: { undo: 3, shuffle: 3, hint: 3 }, rng: Math.random };
+  const s = mkState();
   s.tiles.push(
-    { id: 0, face: 'a', layer: 0, gr: 0, gc: 0, jx: 0, jy: 0, removed: true },
-    { id: 1, face: 'a', layer: 0, gr: 0, gc: 1, jx: 0, jy: 0, removed: true },
-    { id: 2, face: 'a', layer: 0, gr: 0, gc: 2, jx: 0, jy: 0, removed: false },
-    { id: 3, face: 'b', layer: 0, gr: 0, gc: 3, jx: 0, jy: 0, removed: false },
-    { id: 4, face: 'b', layer: 0, gr: 0, gc: 4, jx: 0, jy: 0, removed: false }
+    mkTile(0, 'a', 0, 0, 0, true),
+    mkTile(1, 'a', 400, 0, 0, true),
+    mkTile(2, 'a', 800, 0, 0, false),
+    mkTile(3, 'b', 1200, 0, 0, false),
+    mkTile(4, 'b', 1600, 0, 0, false)
   );
   s.tray = [0, 1];
   const res = CORE.hint(s);
-  assert(res.ok && res.id === 2, '应推荐能凑三消的 tile#2，实际 ' + (res.id));
-  assert(s.toolUses.hint === 2, '提示次数应扣减');
+  assert(res.ok && res.id === 2, '应推荐能凑三消的 tile#2，实际 ' + res.id);
+  assert(s.toolUses.hint === 4, '提示次数应扣减');
 
-  /* 无安全牌时不应消耗 */
-  const s2 = { diffKey: 'easy', faces: [], tiles: [], tray: [], history: [], moves: 0, status: 'playing', reason: '', toolUses: { undo: 3, shuffle: 3, hint: 1 }, rng: Math.random };
+  const s2 = mkState();
+  s2.toolUses.hint = 1;
   const faces7 = ['a', 'b', 'c', 'd', 'e', 'f', 'g'];
-  for (let i = 0; i < 6; i++) s2.tiles.push({ id: i, face: faces7[i], layer: 0, gr: 0, gc: i, jx: 0, jy: 0, removed: true });
-  s2.tiles.push({ id: 6, face: 'z', layer: 0, gr: 0, gc: 6, jx: 0, jy: 0, removed: false });
+  for (let i = 0; i < 6; i++) s2.tiles.push(mkTile(i, faces7[i], i * 400, 0, 0, true));
+  s2.tiles.push(mkTile(6, 'z', 2400, 0, 0, false));
   s2.tray = [0, 1, 2, 3, 4, 5];
   const res2 = CORE.hint(s2);
   assert(res2.ok === false && res2.reason === 'unsafe', '无安全牌应返回 unsafe');

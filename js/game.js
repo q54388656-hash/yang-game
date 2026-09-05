@@ -3,8 +3,7 @@
   'use strict';
 
   /* ---------- 常量与工具 ---------- */
-  var CELL_W = 56, CELL_H = 60, TILE_W = 50, TILE_H = 54;
-  var ORDER = ['easy', 'normal', 'hard'];
+    var ORDER = ['easy', 'normal', 'hard'];
   var DIFF_LABEL = { easy: '简单', normal: '普通', hard: '困难' };
 
   function $(id) { return document.getElementById(id); }
@@ -25,18 +24,16 @@
     var minX = 1e9, maxX = -1e9, minY = 1e9, maxY = -1e9;
     for (var i = 0; i < S.tiles.length; i++) {
       var t = S.tiles[i];
-      t.x = t.gc * CELL_W + CELL_W / 2 + t.jx;
-      t.y = t.gr * CELL_H + CELL_H / 2 + t.jy + t.layer * 3;
       if (t.x < minX) minX = t.x;
       if (t.x > maxX) maxX = t.x;
       if (t.y < minY) minY = t.y;
       if (t.y > maxY) maxY = t.y;
     }
     var pad = 40;
-    var LW = (maxX - minX) + TILE_W + pad * 2;
-    var LH = (maxY - minY) + TILE_H + pad * 2;
-    var OX = minX - pad - TILE_W / 2;
-    var OY = minY - pad - TILE_H / 2;
+    var LW = (maxX - minX) + CORE.GEOM.TW + pad * 2;
+    var LH = (maxY - minY) + CORE.GEOM.TH + pad * 2;
+    var OX = minX - pad - CORE.GEOM.TW / 2;
+    var OY = minY - pad - CORE.GEOM.TH / 2;
     S.boardW = LW; S.boardH = LH;
 
     var wrap = $('boardWrap');
@@ -53,6 +50,7 @@
       el.style.left = Math.round(tile.x - OX) + 'px';
       el.style.top = Math.round(tile.y - OY) + 'px';
       el.style.zIndex = String(10 + tile.layer * 10);
+      el.style.setProperty('--rot', tile.rot + 'deg');
       var face = facesById[tile.face];
       el.style.backgroundImage = "url('" + face.url + "')";
       el.title = face.name;
@@ -94,8 +92,8 @@
 
   function updateHUD() {
     $('diffChip').textContent = DIFF_LABEL[S.diffKey];
-    $('hudRemain').textContent = '剩余 ' + CORE.activeCount(S);
-    $('hudMoves').textContent = '步数 ' + S.moves;
+    $('hudRemain').textContent = '剩余' + CORE.activeCount(S);
+    $('hudMoves').textContent = '步数' + S.moves;
     $('trayCount').textContent = S.tray.length + '/' + CORE.TRAY_SIZE;
   }
 
@@ -504,7 +502,7 @@
         return {
           diffKey: S.diffKey,
           tiles: S.tiles.map(function (t) {
-            return { id: t.id, face: t.face, layer: t.layer, gr: t.gr, gc: t.gc, removed: t.removed };
+            return { id: t.id, face: t.face, layer: t.layer, x: t.x, y: t.y, removed: t.removed };
           }),
           tray: S.tray.slice(),
           moves: S.moves,
@@ -546,5 +544,8 @@
     init();
   }
 })();
+
+
+
 
 

@@ -68,25 +68,25 @@ body {
 
 .tile {
   position: absolute;
-  width: 50px; height: 54px;
+  width: 54px; height: 58px;
   border-radius: 11px;
   background: #fff center/cover no-repeat;
   border: 2px solid rgba(255,255,255,.9);
   box-shadow: 0 3px 6px rgba(110,80,30,.28), inset 0 0 0 1px rgba(255,255,255,.35);
   cursor: pointer;
-  transform: translate(-50%,-50%);
+  transform: translate(-50%,-50%) rotate(var(--rot, 0deg));
   transition: transform .12s ease, box-shadow .12s ease, filter .12s ease, opacity .22s ease;
 }
 .tile:not(.covered):not(.gone):hover {
-  transform: translate(-50%,-50%) scale(1.08) translateY(-2px);
+  transform: translate(-50%,-50%) rotate(var(--rot, 0deg)) scale(1.08) translateY(-2px);
   box-shadow: 0 8px 16px rgba(110,80,30,.35), inset 0 0 0 1px rgba(255,255,255,.5);
   z-index: 900 !important;
 }
 .tile.covered { filter: brightness(.68) saturate(.8); cursor: default; }
-.tile.covered:hover { transform: translate(-50%,-50%); box-shadow: 0 3px 6px rgba(110,80,30,.28); }
-.tile.gone { opacity: 0; pointer-events: none; transform: translate(-50%,-50%) scale(.3); }
+.tile.covered:hover { transform: translate(-50%,-50%) rotate(var(--rot, 0deg)); box-shadow: 0 3px 6px rgba(110,80,30,.28); }
+.tile.gone { opacity: 0; pointer-events: none; transform: translate(-50%,-50%) rotate(var(--rot, 0deg)) scale(.3); }
 .tile.picked { animation: pickedFly .16s ease forwards; pointer-events: none; }
-@keyframes pickedFly { to { transform: translate(-50%,-50%) scale(.2); opacity: 0; } }
+@keyframes pickedFly { to { transform: translate(-50%,-50%) rotate(var(--rot, 0deg)) scale(.2); opacity: 0; } }
 .tile.hint { animation: hintPulse .55s ease-in-out 2; }
 @keyframes hintPulse {
   0%,100% { box-shadow: 0 0 0 4px #ffb300, 0 6px 14px rgba(110,80,30,.35); }
@@ -252,7 +252,7 @@ h1 { margin: 4px 0 2px; font-size: 26px; color: #5d4037; }
 @keyframes confFall { to { transform: translateY(105vh) rotate(720deg); } }
 
 /* 小屏适配 */
-@media (max-width: 380px) {
+@media (max-width: 560px) {
   #hudMoves { display: none; }
   .brand { font-size: 15px; }
   #topbar { gap: 5px; padding: 7px 8px 5px; }
@@ -273,4 +273,6 @@ h1 { margin: 4px 0 2px; font-size: 26px; color: #5d4037; }
   #tray { height: 52px; }
   .tool { padding: 4px 6px; }
 }
+
+
 

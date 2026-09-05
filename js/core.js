@@ -5,10 +5,23 @@
 
   var DIFFS = {
     easy:   { label: '简单', layers: [[8,4],[6,3],[4,2]],                  target: 3.0, tools: { undo: 5, shuffle: 5, hint: 5 } },
-    normal: { label: '普通', layers: [[8,5],[7,4],[6,3],[4,2]],            target: 2.6, tools: { undo: 4, shuffle: 4, hint: 4 } },
-    hard:   { label: '困难', layers: [[9,5],[8,4],[7,3],[5,2]],            target: 2.4, tools: { undo: 4, shuffle: 4, hint: 4 } }
+    normal: { label: '普通', layers: [[8,5],[7,4],[6,3],[4,2]],            target: 3.4, tools: { undo: 5, shuffle: 5, hint: 5 } },
+    hard:   { label: '困难', layers: [[9,5],[8,4],[7,3],[5,2]],            target: 3.2, tools: { undo: 5, shuffle: 5, hint: 5 } }
   };
   var TRAY_SIZE = 7;
+
+  /* 牌面几何：羊了个羊式错落堆叠
+     - 六角错位布局（奇数行右移半个间距），层内相邻牌留均匀小缝
+     - 每一层整体向右下偏移 (DX,DY)，上层牌压住下层牌的右下角，露出左上边角
+     - 切掉每层四角形成不规则“牌堆”轮廓
+     - 覆盖判定：更高层牌与本牌矩形重叠超过阈值才算压住 */
+  var GEOM = {
+    TW: 54, TH: 58,        // 牌尺寸
+    SX: 58, SY: 66,        // 层内网格间距（留 4~8px 均匀缝）
+    DX: 9,  DY: 13,        // 每层向右下偏移（形成堆叠层次）
+    OVERLAP: 12            // 双向重叠需大于该值才算被压住
+  };
+  var CORNERS = true;      // 是否切除每层四角
 
   function randInt(rng, n) { return Math.floor(rng() * n); }
 
@@ -20,31 +33,46 @@
     return arr;
   }
 
-  /* 同心矩形多层布局：每层居中铺格子，同一 (gr,gc) 上下叠放；格子带 ±5px 抖动 */
+  function rectsBlocked(a, b) {
+    var ox = Math.min(a.x + GEOM.TW / 2, b.x + GEOM.TW / 2) - Math.max(a.x - GEOM.TW / 2, b.x - GEOM.TW / 2);
+    var oy = Math.min(a.y + GEOM.TH / 2, b.y + GEOM.TH / 2) - Math.max(a.y - GEOM.TH / 2, b.y - GEOM.TH / 2);
+    return ox > GEOM.OVERLAP && oy > GEOM.OVERLAP;
+  }
+
+  /* 生成某一层的格子（相对自身中心，含向右下偏移与抖动） */
+  function layerCells(cols, rows, li, rng) {
+    var out = [];
+    for (var r = 0; r < rows; r++) {
+      for (var c = 0; c < cols; c++) {
+        /* 切除四角，避免方块感 */
+        if (CORNERS && cols >= 3 && rows >= 3) {
+          var corner = (c === 0 && r === 0) || (c === cols - 1 && r === 0) ||
+                       (c === 0 && r === rows - 1) || (c === cols - 1 && r === rows - 1);
+          if (corner) continue;
+        }
+        var x = (c - (cols - 1) / 2) * GEOM.SX + (r % 2) * (GEOM.SX / 2);
+        var y = (r - (rows - 1) / 2) * GEOM.SY;
+        x += li * GEOM.DX;
+        y += li * GEOM.DY;
+        x += rng() * 6 - 3;   // ±3px 轻微抖动
+        y += rng() * 6 - 3;
+        out.push({ layer: li, x: Math.round(x * 10) / 10, y: Math.round(y * 10) / 10, rot: Math.round((rng() * 5 - 2.5) * 10) / 10 });
+      }
+    }
+    return out;
+  }
+
   function buildCells(diff, rng) {
     var layers = diff.layers;
-    var maxC = 0, maxR = 0, i;
-    for (i = 0; i < layers.length; i++) { maxC = Math.max(maxC, layers[i][0]); maxR = Math.max(maxR, layers[i][1]); }
     var cells = [];
-    var jitter = {};
-    for (i = 0; i < layers.length; i++) {
-      var cols = layers[i][0], rows = layers[i][1];
-      var offC = Math.floor((maxC - cols) / 2);
-      var offR = Math.floor((maxR - rows) / 2);
-      for (var r = 0; r < rows; r++) {
-        for (var c = 0; c < cols; c++) {
-          var gr = r + offR, gc = c + offC, key = gr + '_' + gc;
-          var j = jitter[key];
-          if (!j) { j = { x: Math.round(rng() * 10 - 5), y: Math.round(rng() * 8 - 4) }; jitter[key] = j; }
-          cells.push({ layer: i, gr: gr, gc: gc, jx: j.x, jy: j.y });
-        }
-      }
+    for (var i = 0; i < layers.length; i++) {
+      cells = cells.concat(layerCells(layers[i][0], layers[i][1], i, rng));
     }
     /* 总数裁到 3 的倍数（从最底层移除，最多 2 个） */
     var total = cells.length;
     while (total % 3 !== 0) {
       var bottom = [];
-      for (i = 0; i < cells.length; i++) if (cells[i].layer === 0) bottom.push(i);
+      for (var k = 0; k < cells.length; k++) if (cells[k].layer === 0) bottom.push(k);
       cells.splice(bottom[randInt(rng, bottom.length)], 1);
       total--;
     }
@@ -81,10 +109,9 @@
         id: i,
         face: types[i].id,
         layer: cells[i].layer,
-        gr: cells[i].gr,
-        gc: cells[i].gc,
-        jx: cells[i].jx,
-        jy: cells[i].jy,
+        x: cells[i].x,
+        y: cells[i].y,
+        rot: cells[i].rot,
         removed: false
       });
     }
@@ -113,7 +140,7 @@
   function isCovered(s, t) {
     for (var i = 0; i < s.tiles.length; i++) {
       var u = s.tiles[i];
-      if (!u.removed && u.layer > t.layer && u.gr === t.gr && u.gc === t.gc) return true;
+      if (!u.removed && u.layer > t.layer && rectsBlocked(t, u)) return true;
     }
     return false;
   }
@@ -217,6 +244,7 @@
   var core = {
     DIFFS: DIFFS,
     TRAY_SIZE: TRAY_SIZE,
+    GEOM: GEOM,
     createLevel: createLevel,
     pick: pick,
     undo: undo,
@@ -227,6 +255,7 @@
     tileById: tileById,
     trayFaces: trayFaces,
     countInTray: countInTray,
+    rectsBlocked: rectsBlocked,
     _buildCells: buildCells,
     _distribute: distributeTypes,
     _shuffle: shuffle
@@ -235,4 +264,5 @@
   global.CORE = core;
   if (typeof module !== 'undefined' && module.exports) module.exports = core;
 })(typeof window !== 'undefined' ? window : globalThis);
+
 
