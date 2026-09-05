@@ -6,6 +6,7 @@
   var ORDER = ['easy', 'normal', 'hard'];
   var DIFF_LABEL = { easy: '简单', normal: '普通', hard: '困难' };
   var TOOL_NAMES = { undo: '撤销', shuffle: '洗牌', hint: '提示', restart: '重开' };
+  var TOOL_ICONS = { undo: 'undo', shuffle: 'shuffle', hint: 'hint', restart: 'restart' };
 
   /* 领取弹窗展示的 16 张照片；每张文件名固定，方便浏览器缓存 */
   var REWARD_IMAGES = [];
@@ -15,6 +16,11 @@
   var lastRewardImage = ''; // 记录上一次展示的图片，避免连续重复
 
   function $(id) { return document.getElementById(id); }
+
+  /* 生成内联 SVG 图标，替代 emoji，让界面更接近 iOS 扁平风格 */
+  function icon(name, className) {
+    return '<svg class="ico ' + (className || '') + '" aria-hidden="true"><use href="#i-' + name + '"></use></svg>';
+  }
 
   function bestKey(k) { return 'yang-best-' + k; }
   function loadBest(k) { try { return parseInt(localStorage.getItem(bestKey(k)), 10) || 0; } catch (e) { return 0; } }
@@ -120,6 +126,14 @@
     t.classList.toggle('empty', n <= 0);
   }
 
+  /* 静音按钮使用两个 SVG 状态切换，不再依赖 emoji 文本 */
+  function setMuteIcon(muted) {
+    var on = document.querySelector('#btnMute .sound-on');
+    var off = document.querySelector('#btnMute .sound-off');
+    if (on) on.classList.toggle('hidden', muted);
+    if (off) off.classList.toggle('hidden', !muted);
+  }
+
   function renderAll() {
     renderTiles();
     renderTray();
@@ -168,7 +182,7 @@
   }
 
   function confetti() {
-    var colors = ['#ffd54a', '#ff8a65', '#4dd0e1', '#aed581', '#f48fb1', '#9575cd', '#fff'];
+    var colors = ['#0a84ff', '#5ac8fa', '#34c759', '#ffd60a', '#ff9f0a', '#ff375f', '#fff'];
     var host = document.createElement('div');
     host.className = 'fx-host';
     document.body.appendChild(host);
@@ -222,12 +236,12 @@
           '</div>' +
           '<p class="faces-info" id="facesInfo">' + facesInfo() + '</p>' +
           '<div class="btn-row">' +
-            '<button class="btn primary" data-act="start-easy">😊 简单</button>' +
-            '<button class="btn" data-act="start-normal">🙂 普通</button>' +
-            '<button class="btn" data-act="start-hard">😈 困难</button>' +
+            '<button class="btn primary" data-act="start-easy">简单</button>' +
+            '<button class="btn" data-act="start-normal">普通</button>' +
+            '<button class="btn" data-act="start-hard">困难</button>' +
           '</div>' +
           '<div class="btn-row">' +
-            '<button class="btn ghost" data-act="open-modal">🖼️ 导入我的照片</button>' +
+            '<button class="btn ghost" data-act="open-modal">' + icon('photo') + '导入我的照片</button>' +
           '</div>' +
         '</div>' +
       '</div>', false);
@@ -241,14 +255,14 @@
     var html =
       '<div class="overlay result">' +
         '<div class="panel">' +
-          '<div class="big-emoji">🎉</div>' +
+          '<div class="status-icon success">' + icon('check') + '</div>' +
           '<h1>通关啦！</h1>' +
           '<p class="stat">本局步数：<b>' + S.moves + '</b>' + (isBest ? '（新纪录！）' : '') + '</p>' +
           '<p class="stat">该难度最佳：<b>' + best + '</b> 步</p>' +
           '<div class="btn-row">' +
-            '<button class="btn primary" data-act="replay">🔁 再来一局</button>' +
-            (idx < ORDER.length - 1 ? '<button class="btn" data-act="next">➡️ 下一关（' + DIFF_LABEL[ORDER[idx + 1]] + '）</button>' : '') +
-            '<button class="btn ghost" data-act="menu">☰ 回菜单</button>' +
+            '<button class="btn primary" data-act="replay">' + icon('restart') + '再来一局</button>' +
+            (idx < ORDER.length - 1 ? '<button class="btn" data-act="next">下一关（' + DIFF_LABEL[ORDER[idx + 1]] + '）</button>' : '') +
+            '<button class="btn ghost" data-act="menu">' + icon('menu') + '回菜单</button>' +
           '</div>' +
         '</div>' +
       '</div>';
@@ -264,13 +278,13 @@
     overlayShow(
       '<div class="overlay result">' +
         '<div class="panel">' +
-          '<div class="big-emoji">😵</div>' +
+        '<div class="status-icon fail">' + icon('close') + '</div>' +
           '<h1>挑战失败</h1>' +
           '<p class="stat">' + msg + '</p>' +
           '<p class="stat">本局步数：<b>' + S.moves + '</b>（最佳 ' + (loadBest(S.diffKey) || '-') + '）</p>' +
           '<div class="btn-row">' +
-            '<button class="btn primary" data-act="replay">🔁 再试一次</button>' +
-            '<button class="btn ghost" data-act="menu">☰ 回菜单</button>' +
+            '<button class="btn primary" data-act="replay">' + icon('restart') + '再试一次</button>' +
+            '<button class="btn ghost" data-act="menu">' + icon('menu') + '回菜单</button>' +
           '</div>' +
         '</div>' +
       '</div>', false);
@@ -282,13 +296,13 @@
     var html =
       '<div class="overlay modal-back">' +
         '<div class="panel modal">' +
-          '<h2>🖼️ 自定义牌面</h2>' +
+          '<h2>' + icon('photo') + '自定义牌面</h2>' +
           '<p class="hint">把想玩的照片导进来当牌面（朋友 / 宠物 / 物品都行）。导入后<b>新开一局</b>生效；也可把照片放进 assets/photos 并更新 manifest，让所有访客看到。</p>' +
-          '<label class="btn primary file-btn">➕ 添加照片<input type="file" id="photoInput" multiple accept="image/*"></label>' +
+          '<label class="btn primary file-btn">' + icon('photo') + '添加照片<input type="file" id="photoInput" multiple accept="image/*"></label>' +
           '<div class="local-list" id="localList"></div>' +
           '<p class="faces-info">' + facesInfo() + '</p>' +
           '<div class="btn-row">' +
-            '<button class="btn ghost" data-act="reset-import">🧹 清空本机导入</button>' +
+            '<button class="btn ghost" data-act="reset-import">清空本机导入</button>' +
             '<button class="btn" data-act="close-modal">完成</button>' +
           '</div>' +
         '</div>' +
@@ -350,7 +364,7 @@
     root.innerHTML =
       '<div class="overlay reward">' +
         '<div class="panel reward-panel">' +
-          '<h2>' + TOOL_NAMES[kind] + '道具</h2>' +
+          '<h2>' + icon(TOOL_ICONS[kind]) + TOOL_NAMES[kind] + '道具</h2>' +
           '<img class="reward-image" src="' + rewardImage + '" alt="道具奖励照片" decoding="async">' +
           '<p class="reward-tip">观看图片 <b id="claimSeconds">10</b> 秒后可领取</p>' +
           '<button class="btn ghost" id="claimClose" disabled>倒计时结束后自动领取</button>' +
@@ -548,7 +562,7 @@
 
     $('btnMute').addEventListener('click', function () {
       var muted = AudioSfx.toggleMute();
-      $('btnMute').textContent = muted ? '🔇' : '🔊';
+      setMuteIcon(muted);
       AudioSfx.unlock();
     });
     $('btnPhoto').addEventListener('click', function () { AudioSfx.unlock(); openModal(); });
@@ -630,7 +644,7 @@
     bindEvents();
     installHooks();
     var muted = AudioSfx.muted();
-    $('btnMute').textContent = muted ? '🔇' : '🔊';
+    setMuteIcon(muted);
     Assets.onChange(function () {
       refreshMenuFaces();
       if (!S) showMenu();

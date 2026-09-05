@@ -3,23 +3,40 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-<meta name="theme-color" content="#8ed6ff">
+<meta name="theme-color" content="#f2f4f7">
 <title>叠叠羊 · 羊了个羊同款休闲三消</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 100 100%27%3E%3Ctext y=%27.9em%27 font-size=%2790%27%3E🐑%3C/text%3E%3C/svg%3E">
 <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
+<!-- iOS 风格扁平线性图标；页面内通过 use 引用，保持 DOM 简洁 -->
+<svg class="svg-defs" aria-hidden="true" focusable="false">
+  <symbol id="i-menu" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></symbol>
+  <symbol id="i-photo" viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="14" rx="3.5"/><path d="M7 16.5l3.2-3.7a1 1 0 0 1 1.5 0l2.1 2.4 1.6-1.7a1 1 0 0 1 1.5 0l2.2 2.4"/><circle cx="9" cy="9.5" r="1.35"/></symbol>
+  <symbol id="i-sound-on" viewBox="0 0 24 24"><path d="M4 9.5h3L12 6v12l-5-3.5H4z"/><path d="M15.5 9a4.2 4.2 0 0 1 0 6"/><path d="M18.2 6.6a7.6 7.6 0 0 1 0 10.8"/></symbol>
+  <symbol id="i-sound-off" viewBox="0 0 24 24"><path d="M4 9.5h3L12 6v12l-5-3.5H4z"/><path d="M16 9.8l4.4 4.4M20.4 9.8L16 14.2"/></symbol>
+  <symbol id="i-undo" viewBox="0 0 24 24"><path d="M8.5 5.5L4 10l4.5 4.5"/><path d="M4 10h9.2a6.3 6.3 0 0 1 6.3 6.3v.2"/></symbol>
+  <symbol id="i-shuffle" viewBox="0 0 24 24"><path d="M4 7h3.6l8 10H20M4 17h3.6l2.2-2.7M14 9.7L15.6 7H20"/><path d="M17.5 4.5L20 7l-2.5 2.5M17.5 14.5L20 17l-2.5 2.5"/></symbol>
+  <symbol id="i-hint" viewBox="0 0 24 24"><path d="M9 17.5a5.7 5.7 0 1 1 6 0v1.8a1.7 1.7 0 0 1-1.7 1.7h-2.6A1.7 1.7 0 0 1 9 19.3z"/><path d="M10 17.5h4"/></symbol>
+  <symbol id="i-restart" viewBox="0 0 24 24"><path d="M19.5 12a7.5 7.5 0 1 1-2.2-5.3"/><path d="M17.5 3.5v3.7h-3.7"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></symbol>
+  <symbol id="i-close" viewBox="0 0 24 24"><path d="M7 7l10 10M17 7L7 17"/></symbol>
+</svg>
+
 <div id="app">
   <!-- 顶栏 -->
   <header id="topbar">
-    <div class="brand">🐑 <b>叠叠羊</b></div>
+    <div class="brand"><span class="brand-mark">🐑</span><b>叠叠羊</b></div>
     <span class="chip" id="diffChip">简单</span>
     <div class="spacer"></div>
     <span class="hud" id="hudRemain">剩余 --</span>
     <span class="hud" id="hudMoves">步数 0</span>
-    <button class="icon-btn" id="btnMenu" title="返回菜单">☰</button>
-    <button class="icon-btn" id="btnPhoto" title="自定义照片牌面">🖼️</button>
-    <button class="icon-btn" id="btnMute" title="声音开关">🔊</button>
+    <button class="icon-btn" id="btnMenu" title="返回菜单"><svg class="ico"><use href="#i-menu"></use></svg></button>
+    <button class="icon-btn" id="btnPhoto" title="自定义照片牌面"><svg class="ico"><use href="#i-photo"></use></svg></button>
+    <button class="icon-btn" id="btnMute" title="声音开关">
+      <svg class="ico sound-on"><use href="#i-sound-on"></use></svg>
+      <svg class="ico sound-off hidden"><use href="#i-sound-off"></use></svg>
+    </button>
   </header>
 
   <!-- 牌面舞台 -->
@@ -36,10 +53,10 @@
   </section>
 
   <nav id="toolbar">
-    <button class="tool" id="toolUndo"><span class="tool-ico">↩️</span>撤销<b class="badge" id="badgeUndo">0</b></button>
-    <button class="tool" id="toolShuffle"><span class="tool-ico">🔄</span>洗牌<b class="badge" id="badgeShuffle">0</b></button>
-    <button class="tool" id="toolHint"><span class="tool-ico">💡</span>提示<b class="badge" id="badgeHint">0</b></button>
-    <button class="tool" id="toolRestart"><span class="tool-ico">🔁</span>重开<b class="badge" id="badgeRestart">0</b></button>
+    <button class="tool" id="toolUndo"><svg class="ico tool-ico"><use href="#i-undo"></use></svg>撤销<b class="badge" id="badgeUndo">0</b></button>
+    <button class="tool" id="toolShuffle"><svg class="ico tool-ico"><use href="#i-shuffle"></use></svg>洗牌<b class="badge" id="badgeShuffle">0</b></button>
+    <button class="tool" id="toolHint"><svg class="ico tool-ico"><use href="#i-hint"></use></svg>提示<b class="badge" id="badgeHint">0</b></button>
+    <button class="tool" id="toolRestart"><svg class="ico tool-ico"><use href="#i-restart"></use></svg>重开<b class="badge" id="badgeRestart">0</b></button>
   </nav>
 </div>
 
