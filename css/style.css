@@ -117,6 +117,45 @@ svg { display: block; }
 }
 .icon-btn:active { transform: scale(.92); opacity: .72; }
 
+/* 图鉴入口：保留 iOS 小方钮质感，数量角标沿用通知式红底白字 */
+.album-btn { position: relative; }
+.album-badge {
+  position: absolute;
+  top: -6px;
+  right: -10px;
+  min-width: 28px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: var(--ios-red);
+  color: #fff;
+  font-size: 9px;
+  font-style: normal;
+  font-weight: 800;
+  line-height: 16px;
+  text-align: center;
+  box-shadow: 0 2px 7px rgba(255,59,48,.30), 0 0 0 2px rgba(255,255,255,.86);
+}
+.album-badge.new-unlock { animation: albumUnlockPulse .72s var(--ios-ease); }
+.album-badge.new-unlock::after {
+  content: '';
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--ios-red);
+  border: 1.5px solid #fff;
+  box-shadow: 0 0 8px rgba(255,59,48,.72);
+}
+.album-badge.complete { background: var(--ios-green); box-shadow: 0 2px 8px rgba(52,199,89,.30), 0 0 0 2px rgba(255,255,255,.86); }
+@keyframes albumUnlockPulse {
+  0% { transform: scale(.76); }
+  48% { transform: scale(1.16); }
+  100% { transform: scale(1); }
+}
+
 /* ---------- 舞台 ---------- */
 #stage { position: relative; flex: 1; min-height: 0; overflow: hidden; }
 #boardWrap { position: absolute; left: 50%; top: 50%; transform-origin: center center; will-change: transform; }
@@ -409,6 +448,221 @@ h2 .ico { width: 22px; height: 22px; color: var(--ios-blue); }
 }
 .reward-tip { color: var(--ios-subtext); font-size: 15px; margin: 13px 0 14px; }
 .reward-tip b { color: var(--ios-blue); font-size: 19px; }
+
+/* ---------- 照片图鉴 ---------- */
+#galleryRoot { position: fixed; inset: 0; z-index: 280; display: none; }
+#galleryRoot.show { display: block; }
+.gallery-shell {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: max(10px, env(safe-area-inset-top)) 10px max(10px, env(safe-area-inset-bottom));
+  background: rgba(20, 24, 32, .32);
+  backdrop-filter: blur(24px) saturate(170%);
+  -webkit-backdrop-filter: blur(24px) saturate(170%);
+}
+.gallery-panel {
+  width: min(100%, 560px);
+  max-height: calc(100dvh - 20px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-radius: var(--ios-radius-lg);
+  background: rgba(255,255,255,.76);
+  backdrop-filter: blur(30px) saturate(190%);
+  -webkit-backdrop-filter: blur(30px) saturate(190%);
+  border: 1px solid rgba(255,255,255,.66);
+  box-shadow: var(--ios-shadow-panel);
+  animation: popIn .26s var(--ios-ease);
+}
+.gallery-head {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 14px 12px 18px;
+  border-bottom: 1px solid var(--ios-separator);
+}
+.gallery-title-wrap { min-width: 0; }
+.gallery-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-size: 20px;
+  line-height: 1.2;
+}
+.gallery-title .ico { color: var(--ios-blue); width: 22px; height: 22px; }
+.gallery-title.completed { color: var(--ios-green); }
+.gallery-title.completed .ico { color: var(--ios-green); }
+.album-complete {
+  flex: none;
+  color: var(--ios-green);
+  background: rgba(52,199,89,.12);
+  border-radius: 999px;
+  padding: 3px 8px;
+  font-size: 11px;
+  font-weight: 700;
+}
+.gallery-progress-text { margin: 4px 0 0; color: var(--ios-subtext); font-size: 13px; }
+.gallery-progress-text b { color: var(--ios-text); font-weight: 800; }
+.gallery-scroll {
+  min-height: 0;
+  flex: 1;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  padding: 14px;
+}
+.album-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+.album-card {
+  min-width: 0;
+  border: 0;
+  padding: 0;
+  font-family: inherit;
+  text-align: center;
+  background: transparent;
+}
+.album-thumb {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 100%;
+  aspect-ratio: 1;
+  overflow: hidden;
+  border-radius: 20px;
+  background: #e5e5ea center/cover no-repeat;
+  border: 1px solid rgba(255,255,255,.72);
+  box-shadow: 0 8px 20px rgba(15,23,42,.08);
+}
+.album-card.unlocked { cursor: pointer; transition: transform .18s var(--ios-ease), box-shadow .18s var(--ios-ease); }
+.album-card.unlocked .album-thumb {
+  border-color: rgba(0,122,255,.30);
+  box-shadow: 0 0 0 1.5px rgba(0,122,255,.28), 0 10px 24px rgba(0,122,255,.14);
+}
+.album-card.unlocked:active { transform: scale(.96); }
+@media (hover: hover) {
+  .album-card.unlocked:hover { transform: translateY(-3px); }
+}
+.album-state {
+  position: absolute;
+  top: 7px;
+  right: 7px;
+  color: #fff;
+  background: rgba(0,122,255,.78);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  padding: 2px 6px;
+  border-radius: 999px;
+  font-size: 9px;
+  font-weight: 800;
+  box-shadow: 0 2px 7px rgba(0,0,0,.14);
+}
+.album-card.locked { cursor: default; }
+.album-card.locked .album-thumb { background: linear-gradient(160deg, #d9dade, #c8c9cf); }
+/* 未解锁统一使用半透明深灰 + 模糊遮罩，不用纯黑 */
+.album-card.locked .album-thumb::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: rgba(60,60,67,.42);
+  backdrop-filter: blur(8px) saturate(.72);
+  -webkit-backdrop-filter: blur(8px) saturate(.72);
+}
+.album-question {
+  position: relative;
+  z-index: 1;
+  color: rgba(255,255,255,.92);
+  font-size: 31px;
+  font-weight: 800;
+  text-shadow: 0 2px 8px rgba(0,0,0,.20);
+}
+.album-name {
+  display: block;
+  margin-top: 7px;
+  color: var(--ios-text);
+  font-size: 12px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.album-card.locked .album-name { color: #8e8e93; }
+.gallery-foot {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 18px calc(12px + env(safe-area-inset-bottom));
+  border-top: 1px solid var(--ios-separator);
+  background: rgba(255,255,255,.58);
+}
+.album-progress {
+  flex: 1;
+  height: 8px;
+  border-radius: 999px;
+  background: rgba(120,120,128,.16);
+  overflow: hidden;
+}
+.album-progress i {
+  display: block;
+  height: 100%;
+  min-width: 8px;
+  border-radius: inherit;
+  background: var(--ios-red);
+  transition: width .32s var(--ios-ease);
+}
+.album-percent {
+  min-width: 34px;
+  text-align: right;
+  color: var(--ios-subtext);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+/* 图鉴内大图预览：居中 iOS 面板，点击外部蒙层关闭 */
+.album-preview {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 18px;
+  background: rgba(0,0,0,.34);
+  backdrop-filter: blur(20px) saturate(170%);
+  -webkit-backdrop-filter: blur(20px) saturate(170%);
+}
+.album-preview-panel {
+  width: min(92vw, 500px);
+  border-radius: var(--ios-radius-lg);
+  padding: 14px;
+  text-align: center;
+  background: rgba(255,255,255,.82);
+  backdrop-filter: blur(28px) saturate(190%);
+  -webkit-backdrop-filter: blur(28px) saturate(190%);
+  border: 1px solid rgba(255,255,255,.70);
+  box-shadow: var(--ios-shadow-panel);
+  animation: popIn .24s var(--ios-ease);
+}
+.album-preview-stage {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  overflow: hidden;
+  border-radius: 22px;
+  background: #eef1f5;
+  border: 1px solid rgba(255,255,255,.68);
+  box-shadow: 0 14px 32px rgba(15,23,42,.12);
+}
+.album-preview-stage .reward-image { border-radius: inherit; }
+.album-preview-panel h3 { margin: 12px 0; font-size: 18px; }
 
 /* 彩带 */
 .fx-host { position: fixed; inset: 0; pointer-events: none; z-index: 400; overflow: hidden; }

@@ -6,13 +6,14 @@
 <meta name="theme-color" content="#f2f4f7">
 <title>叠叠羊 · 羊了个羊同款休闲三消</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 100 100%27%3E%3Ctext y=%27.9em%27 font-size=%2790%27%3E🐑%3C/text%3E%3C/svg%3E">
-<link rel="stylesheet" href="css/style.css">
+<link rel="stylesheet" href="css/style.css?v=20260905e">
 </head>
 <body>
 <!-- iOS 风格扁平线性图标；页面内通过 use 引用，保持 DOM 简洁 -->
 <svg class="svg-defs" aria-hidden="true" focusable="false">
   <symbol id="i-menu" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></symbol>
   <symbol id="i-photo" viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="14" rx="3.5"/><path d="M7 16.5l3.2-3.7a1 1 0 0 1 1.5 0l2.1 2.4 1.6-1.7a1 1 0 0 1 1.5 0l2.2 2.4"/><circle cx="9" cy="9.5" r="1.35"/></symbol>
+  <symbol id="i-album" viewBox="0 0 24 24"><rect x="8" y="3.5" width="12.5" height="12.5" rx="3.5"/><rect x="3.5" y="8" width="12.5" height="12.5" rx="3.5"/><path d="M6.5 16.5l2.2-2.5a1 1 0 0 1 1.5 0l1.7 1.9 1.1-1.2a1 1 0 0 1 1.5 0l1.5 1.8"/></symbol>
   <symbol id="i-sound-on" viewBox="0 0 24 24"><path d="M4 9.5h3L12 6v12l-5-3.5H4z"/><path d="M15.5 9a4.2 4.2 0 0 1 0 6"/><path d="M18.2 6.6a7.6 7.6 0 0 1 0 10.8"/></symbol>
   <symbol id="i-sound-off" viewBox="0 0 24 24"><path d="M4 9.5h3L12 6v12l-5-3.5H4z"/><path d="M16 9.8l4.4 4.4M20.4 9.8L16 14.2"/></symbol>
   <symbol id="i-undo" viewBox="0 0 24 24"><path d="M8.5 5.5L4 10l4.5 4.5"/><path d="M4 10h9.2a6.3 6.3 0 0 1 6.3 6.3v.2"/></symbol>
@@ -32,6 +33,10 @@
     <span class="hud" id="hudRemain">剩余 --</span>
     <span class="hud" id="hudMoves">步数 0</span>
     <button class="icon-btn" id="btnMenu" title="返回菜单"><svg class="ico"><use href="#i-menu"></use></svg></button>
+    <button class="icon-btn album-btn" id="btnAlbum" title="照片图鉴" aria-label="照片图鉴">
+      <svg class="ico"><use href="#i-album"></use></svg>
+      <b class="album-badge" id="albumBadge">0/17</b>
+    </button>
     <button class="icon-btn" id="btnPhoto" title="自定义照片牌面"><svg class="ico"><use href="#i-photo"></use></svg></button>
     <button class="icon-btn" id="btnMute" title="声音开关">
       <svg class="ico sound-on"><use href="#i-sound-on"></use></svg>
@@ -66,11 +71,13 @@
 <div id="modalRoot"></div>
 <!-- 道具奖励弹窗：倒计时完成前强制锁定 -->
 <div id="claimRoot"></div>
+<!-- 照片图鉴：全屏收集进度与预览 -->
+<div id="galleryRoot"></div>
 
-<script src="js/core.js?v=20260905d"></script>
-<script src="js/assets.js?v=20260905d"></script>
-<script src="js/audio.js?v=20260905d"></script>
-<script src="js/game.js?v=20260905d"></script>
+<script src="js/core.js?v=20260905e"></script>
+<script src="js/assets.js?v=20260905e"></script>
+<script src="js/audio.js?v=20260905e"></script>
+<script src="js/game.js?v=20260905e"></script>
 </body>
 </html>
 

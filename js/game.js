@@ -8,11 +8,29 @@
   var TOOL_NAMES = { undo: '撤销', shuffle: '洗牌', hint: '提示', restart: '重开' };
   var TOOL_ICONS = { undo: 'undo', shuffle: 'shuffle', hint: 'hint', restart: 'restart' };
 
-  /* 领取弹窗展示的 17 张照片；每张文件名固定，方便浏览器缓存 */
-  var REWARD_IMAGES = [];
-  for (var rewardIndex = 1; rewardIndex <= 17; rewardIndex++) {
-    REWARD_IMAGES.push('assets/reward-images/reward-' + (rewardIndex < 10 ? '0' : '') + rewardIndex + '.jpg');
-  }
+  /*
+   * 照片图鉴数据源：所有倒计时弹窗照片都在这里统一维护。
+   * id 用于图鉴解锁去重；name 只做展示，不影响任何游戏逻辑。
+   */
+  var PHOTOS = [
+    { id: 'photo-01', url: 'assets/reward-images/reward-01.jpg', name: '形象收藏 01' },
+    { id: 'photo-02', url: 'assets/reward-images/reward-02.jpg', name: '形象收藏 02' },
+    { id: 'photo-03', url: 'assets/reward-images/reward-03.jpg', name: '形象收藏 03' },
+    { id: 'photo-04', url: 'assets/reward-images/reward-04.jpg', name: '形象收藏 04' },
+    { id: 'photo-05', url: 'assets/reward-images/reward-05.jpg', name: '形象收藏 05' },
+    { id: 'photo-06', url: 'assets/reward-images/reward-06.jpg', name: '形象收藏 06' },
+    { id: 'photo-07', url: 'assets/reward-images/reward-07.jpg', name: '形象收藏 07' },
+    { id: 'photo-08', url: 'assets/reward-images/reward-08.jpg', name: '形象收藏 08' },
+    { id: 'photo-09', url: 'assets/reward-images/reward-09.jpg', name: '形象收藏 09' },
+    { id: 'photo-10', url: 'assets/reward-images/reward-10.jpg', name: '形象收藏 10' },
+    { id: 'photo-11', url: 'assets/reward-images/reward-11.jpg', name: '形象收藏 11' },
+    { id: 'photo-12', url: 'assets/reward-images/reward-12.jpg', name: '形象收藏 12' },
+    { id: 'photo-13', url: 'assets/reward-images/reward-13.jpg', name: '形象收藏 13' },
+    { id: 'photo-14', url: 'assets/reward-images/reward-14.jpg', name: '形象收藏 14' },
+    { id: 'photo-15', url: 'assets/reward-images/reward-15.jpg', name: '形象收藏 15' },
+    { id: 'photo-16', url: 'assets/reward-images/reward-16.jpg', name: '形象收藏 16' },
+    { id: 'photo-17', url: 'assets/reward-images/reward-17.jpg', name: '操场合影' }
+  ];
   var REWARD_CACHE_VERSION = '20260905d'; // 稳定版本号：新增第 17 张奖励图后更新
   var rewardEntries = [];      // 预加载状态 + 可复用 <img> 对象
   var lastRewardIndex = -1;    // 上一次展示编号，避免连续重复
@@ -68,8 +86,8 @@
     img.className = 'reward-image';
     img.decoding = 'async';
     img.loading = 'eager';
-    img.alt = '道具奖励照片';
-    img.dataset.rewardId = String(entry.id);
+    img.alt = (PHOTOS[entry.id] || {}).name || '道具奖励照片';
+    img.dataset.rewardId = String(entry.photoId || entry.id);
     img.addEventListener('load', function () { handleRewardLoad(entry); });
     img.addEventListener('error', function () { handleRewardError(entry); });
     entry.image = img;
@@ -79,8 +97,8 @@
   /* 页面初始化时静默预热：不在界面显示进度，也不阻塞首屏渲染 */
   function preloadRewardImages() {
     if (rewardEntries.length) return;
-    rewardEntries = REWARD_IMAGES.map(function (url, id) {
-      return { id: id, url: versionedRewardUrl(url), state: 'pending', image: null };
+    rewardEntries = PHOTOS.map(function (photo, index) {
+      return { id: index, photoId: photo.id, url: versionedRewardUrl(photo.url), state: 'pending', image: null };
     });
     rewardPreload = { total: rewardEntries.length, loaded: 0, failed: 0 };
     console.log('[RewardImages] 预加载开始：' + rewardPreload.total + ' 张');
@@ -136,6 +154,55 @@
   function bestKey(k) { return 'yang-best-' + k; }
   function loadBest(k) { try { return parseInt(localStorage.getItem(bestKey(k)), 10) || 0; } catch (e) { return 0; } }
   function saveBest(k, v) { try { localStorage.setItem(bestKey(k), String(v)); } catch (e) { /* noop */ } }
+
+  /* ---------- 照片图鉴：本地进度持久化 ---------- */
+  var UNLOCKED_PHOTOS_KEY = 'sheep_game_unlocked_photos';
+  var unlockedPhotos = loadUnlockedPhotos(); // 游戏初始化时立即读取，刷新后进度不丢
+
+  function loadUnlockedPhotos() {
+    var validIds = {};
+    PHOTOS.forEach(function (photo) { validIds[photo.id] = true; });
+    try {
+      var saved = JSON.parse(localStorage.getItem(UNLOCKED_PHOTOS_KEY) || '[]');
+      var result = new Set();
+      /* 只接受当前 PHOTOS 里真实存在的 id，旧版本/脏数据不会影响图鉴数量 */
+      if (Array.isArray(saved)) {
+        saved.forEach(function (id) { if (typeof id === 'string' && validIds[id]) result.add(id); });
+      }
+      return result;
+    } catch (e) {
+      return new Set();
+    }
+  }
+
+  function saveUnlockedPhotos() {
+    try {
+      localStorage.setItem(UNLOCKED_PHOTOS_KEY, JSON.stringify(Array.from(unlockedPhotos)));
+    } catch (e) { /* 隐身模式或存储已满时，游戏本体仍可继续玩 */ }
+  }
+
+  function updateAlbumBadge() {
+    var badge = $('albumBadge');
+    if (!badge) return;
+    badge.textContent = unlockedPhotos.size + '/' + PHOTOS.length;
+    badge.classList.toggle('complete', unlockedPhotos.size === PHOTOS.length);
+  }
+
+  /* 只有倒计时完整结束并成功发放道具后才会调用这里 */
+  function unlockPhoto(photoId) {
+    if (!photoId || unlockedPhotos.has(photoId)) return;
+    unlockedPhotos.add(photoId);
+    saveUnlockedPhotos();
+    updateAlbumBadge();
+
+    /* 解锁瞬间点亮入口角标；玩家打开图鉴后红点消失 */
+    var badge = $('albumBadge');
+    if (badge) {
+      badge.classList.remove('just-unlocked');
+      badge.classList.add('new-unlock');
+      setTimeout(function () { badge.classList.remove('just-unlocked'); }, 720);
+    }
+  }
 
   var S = null;            // 当前对局状态（来自 CORE）
   var toastTimer = null;
@@ -326,6 +393,7 @@
     modal.innerHTML = '';
     modal.classList.remove('show');
     hideClaim(true);
+    closeAlbum();
   }
 
   function facesInfo() {
@@ -445,6 +513,124 @@
     modal.classList.remove('show');
   }
 
+  /* ---------- 照片图鉴：收集、浏览与大图预览 ---------- */
+  function photoById(photoId) {
+    for (var i = 0; i < PHOTOS.length; i++) {
+      if (PHOTOS[i].id === photoId) return PHOTOS[i];
+    }
+    return null;
+  }
+
+  function rewardEntryByPhotoId(photoId) {
+    for (var i = 0; i < rewardEntries.length; i++) {
+      if (rewardEntries[i].photoId === photoId) return rewardEntries[i];
+    }
+    return null;
+  }
+
+  function renderGallery() {
+    var count = unlockedPhotos.size;
+    var completed = count === PHOTOS.length;
+    var cards = '';
+
+    for (var i = 0; i < PHOTOS.length; i++) {
+      var photo = PHOTOS[i];
+      var unlocked = unlockedPhotos.has(photo.id);
+      if (unlocked) {
+        cards +=
+          '<button class="album-card unlocked" type="button" data-photo-id="' + photo.id + '" aria-label="查看 ' + photo.name + '">' +
+            '<span class="album-thumb" style="background-image:url(\'' + versionedRewardUrl(photo.url) + '\')">' +
+              '<span class="album-state">已点亮</span>' +
+            '</span>' +
+            '<span class="album-name">' + photo.name + '</span>' +
+          '</button>';
+      } else {
+        cards +=
+          '<div class="album-card locked" aria-disabled="true">' +
+            '<span class="album-thumb"><span class="album-question">?</span></span>' +
+            '<span class="album-name">？？？</span>' +
+          '</div>';
+      }
+    }
+
+    return (
+      '<div class="gallery-shell">' +
+        '<section class="gallery-panel" role="dialog" aria-modal="true" aria-label="照片图鉴">' +
+          '<header class="gallery-head">' +
+            '<div class="gallery-title-wrap">' +
+              '<h2 class="gallery-title' + (completed ? ' completed' : '') + '">' +
+                icon('album') + '照片图鉴' +
+                (completed ? '<span class="album-complete">全部收集完成</span>' : '') +
+              '</h2>' +
+              '<p class="gallery-progress-text">已收集 <b>' + count + '/' + PHOTOS.length + '</b></p>' +
+            '</div>' +
+            '<button class="icon-btn" type="button" data-act="close-gallery" aria-label="关闭图鉴">' + icon('close') + '</button>' +
+          '</header>' +
+          '<div class="gallery-scroll">' +
+            '<div class="album-grid">' + cards + '</div>' +
+          '</div>' +
+          '<footer class="gallery-foot">' +
+            '<div class="album-progress"><i style="width:' + Math.round((count / PHOTOS.length) * 100) + '%"></i></div>' +
+            '<span class="album-percent">' + Math.round((count / PHOTOS.length) * 100) + '%</span>' +
+          '</footer>' +
+        '</section>' +
+      '</div>'
+    );
+  }
+
+  function showAlbum() {
+    var root = $('galleryRoot');
+    root.innerHTML = renderGallery();
+    root.classList.add('show');
+
+    /* 打开图鉴即为“已读”：新解锁红点立刻消失，但数量角标保留 */
+    var badge = $('albumBadge');
+    if (badge) badge.classList.remove('new-unlock');
+    AudioSfx.play('click');
+  }
+
+  function closeAlbum() {
+    var root = $('galleryRoot');
+    root.innerHTML = '';
+    root.classList.remove('show');
+  }
+
+  function openPhotoPreview(photoId) {
+    var root = $('galleryRoot');
+    var photo = photoById(photoId);
+    if (!photo || !unlockedPhotos.has(photoId)) return;
+
+    /* 奖励图对象全局只创建一次；预览时复用它，避免重复下载/重复解码 */
+    var entry = rewardEntryByPhotoId(photoId);
+    var media = entry && entry.image ? entry.image : '<div class="reward-loading">图片加载中...</div>';
+    var oldPreview = root.querySelector('.album-preview');
+    if (oldPreview) oldPreview.remove();
+
+    var preview = document.createElement('div');
+    preview.className = 'album-preview';
+    preview.innerHTML =
+      '<div class="album-preview-panel" role="dialog" aria-modal="true" aria-label="' + photo.name + '">' +
+        '<div class="album-preview-stage" id="albumPreviewStage"></div>' +
+        '<h3>' + photo.name + '</h3>' +
+        '<button class="btn ghost" type="button" data-act="close-preview">' + icon('close') + '关闭</button>' +
+      '</div>';
+
+    preview.addEventListener('click', function (event) {
+      /* iOS 常规交互：点空白蒙层关闭，点面板内部不关闭 */
+      if (event.target === preview) closePhotoPreview();
+    });
+    root.appendChild(preview);
+
+    var stage = $('albumPreviewStage');
+    if (typeof media === 'string') stage.innerHTML = media;
+    else stage.replaceChildren(entry.image);
+  }
+
+  function closePhotoPreview() {
+    var preview = document.querySelector('#galleryRoot .album-preview');
+    if (preview) preview.remove();
+  }
+
   /* ---------- 道具奖励：10 秒锁定后只给当前道具 +1 ---------- */
   function hideClaim(silent) {
     var root = $('claimRoot');
@@ -489,6 +675,8 @@
       if (claimState.timer) clearInterval(claimState.timer);
       if (S && S.toolUses) S.toolUses[claimState.kind] = (S.toolUses[claimState.kind] || 0) + 1;
       var granted = claimState.kind;
+      var rewardedPhotoId = claimState.reward ? claimState.reward.photoId : null;
+      unlockPhoto(rewardedPhotoId); // 图鉴解锁只追加在“完整计时成功发放”之后
       hideClaim(false);
       updateTools();
       AudioSfx.play('tool');
@@ -670,6 +858,10 @@
       AudioSfx.unlock();
     });
     $('btnPhoto').addEventListener('click', function () { AudioSfx.unlock(); openModal(); });
+    $('btnAlbum').addEventListener('click', function () {
+      AudioSfx.unlock();
+      showAlbum();
+    });
     $('btnMenu').addEventListener('click', function () {
       AudioSfx.unlock();
       if (S && S.status === 'playing') {
@@ -699,6 +891,26 @@
     $('claimRoot').addEventListener('contextmenu', function (e) {
       e.preventDefault();
       e.stopPropagation();
+    });
+
+    /* 图鉴内按钮 / 卡片 / 空白区域统一委托，滚动列表不因重复绑定而失效 */
+    $('galleryRoot').addEventListener('click', function (e) {
+      var action = e.target.closest ? e.target.closest('[data-act]') : null;
+      if (action) {
+        if (action.dataset.act === 'close-gallery') closeAlbum();
+        else if (action.dataset.act === 'close-preview') closePhotoPreview();
+        return;
+      }
+
+      var card = e.target.closest ? e.target.closest('.album-card.unlocked[data-photo-id]') : null;
+      if (card) {
+        AudioSfx.unlock();
+        openPhotoPreview(card.dataset.photoId);
+        return;
+      }
+
+      /* 点图鉴面板外的深色磨砂区域直接关闭 */
+      if (e.target.classList && e.target.classList.contains('gallery-shell')) closeAlbum();
     });
 
     /* 倒计时未结束时屏蔽键盘路径，避免 Tab + Enter 触发下层界面 */
@@ -739,6 +951,13 @@
       undo: function () { return S ? CORE.undo(S) : { ok: false }; },
       shuffle: function () { return S ? CORE.shuffle(S) : { ok: false }; },
       hint: function () { return S ? CORE.hint(S) : { ok: false }; },
+      album: function () {
+        return {
+          total: PHOTOS.length,
+          unlocked: Array.from(unlockedPhotos),
+          storageKey: UNLOCKED_PHOTOS_KEY
+        };
+      },
       core: CORE
     };
   }
@@ -749,6 +968,7 @@
     installHooks();
     var muted = AudioSfx.muted();
     setMuteIcon(muted);
+    updateAlbumBadge();
     /* 打开页面即预热：不 await，不阻塞菜单渲染和玩家操作 */
     preloadRewardImages();
     Assets.onChange(function () {
@@ -769,6 +989,7 @@
     init();
   }
 })();
+
 
 
 
