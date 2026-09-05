@@ -459,9 +459,10 @@ h2 .ico { width: 22px; height: 22px; color: var(--ios-blue); }
   align-items: center;
   justify-content: center;
   padding: max(10px, env(safe-area-inset-top)) 10px max(10px, env(safe-area-inset-bottom));
-  background: rgba(20, 24, 32, .32);
-  backdrop-filter: blur(24px) saturate(170%);
-  -webkit-backdrop-filter: blur(24px) saturate(170%);
+  /* 蒙层稍深一些，避免底层游戏牌面的直角轮廓从玻璃外露出 */
+  background: rgba(18, 22, 30, .46);
+  backdrop-filter: blur(34px) saturate(150%);
+  -webkit-backdrop-filter: blur(34px) saturate(150%);
 }
 .gallery-panel {
   width: min(100%, 560px);
@@ -470,9 +471,9 @@ h2 .ico { width: 22px; height: 22px; color: var(--ios-blue); }
   flex-direction: column;
   overflow: hidden;
   border-radius: var(--ios-radius-lg);
-  background: rgba(255,255,255,.76);
-  backdrop-filter: blur(30px) saturate(190%);
-  -webkit-backdrop-filter: blur(30px) saturate(190%);
+  background: rgba(255,255,255,.88);
+  backdrop-filter: blur(36px) saturate(180%);
+  -webkit-backdrop-filter: blur(36px) saturate(180%);
   border: 1px solid rgba(255,255,255,.66);
   box-shadow: var(--ios-shadow-panel);
   animation: popIn .26s var(--ios-ease);

@@ -13,25 +13,25 @@
    * id 用于图鉴解锁去重；name 只做展示，不影响任何游戏逻辑。
    */
   var PHOTOS = [
-    { id: 'photo-01', url: 'assets/reward-images/reward-01.jpg', name: '形象收藏 01' },
-    { id: 'photo-02', url: 'assets/reward-images/reward-02.jpg', name: '形象收藏 02' },
-    { id: 'photo-03', url: 'assets/reward-images/reward-03.jpg', name: '形象收藏 03' },
-    { id: 'photo-04', url: 'assets/reward-images/reward-04.jpg', name: '形象收藏 04' },
-    { id: 'photo-05', url: 'assets/reward-images/reward-05.jpg', name: '形象收藏 05' },
-    { id: 'photo-06', url: 'assets/reward-images/reward-06.jpg', name: '形象收藏 06' },
-    { id: 'photo-07', url: 'assets/reward-images/reward-07.jpg', name: '形象收藏 07' },
-    { id: 'photo-08', url: 'assets/reward-images/reward-08.jpg', name: '形象收藏 08' },
-    { id: 'photo-09', url: 'assets/reward-images/reward-09.jpg', name: '形象收藏 09' },
-    { id: 'photo-10', url: 'assets/reward-images/reward-10.jpg', name: '形象收藏 10' },
-    { id: 'photo-11', url: 'assets/reward-images/reward-11.jpg', name: '形象收藏 11' },
-    { id: 'photo-12', url: 'assets/reward-images/reward-12.jpg', name: '形象收藏 12' },
-    { id: 'photo-13', url: 'assets/reward-images/reward-13.jpg', name: '形象收藏 13' },
-    { id: 'photo-14', url: 'assets/reward-images/reward-14.jpg', name: '形象收藏 14' },
-    { id: 'photo-15', url: 'assets/reward-images/reward-15.jpg', name: '形象收藏 15' },
-    { id: 'photo-16', url: 'assets/reward-images/reward-16.jpg', name: '形象收藏 16' },
-    { id: 'photo-17', url: 'assets/reward-images/reward-17.jpg', name: '操场合影' }
+    { id: 'photo-01', url: 'assets/reward-images/reward-01.jpg', name: '暗夜戏偶' },
+    { id: 'photo-02', url: 'assets/reward-images/reward-02.jpg', name: '废墟探险' },
+    { id: 'photo-03', url: 'assets/reward-images/reward-03.jpg', name: '昆虫秘藏' },
+    { id: 'photo-04', url: 'assets/reward-images/reward-04.jpg', name: '马戏绅士' },
+    { id: 'photo-05', url: 'assets/reward-images/reward-05.jpg', name: '标本猎人' },
+    { id: 'photo-06', url: 'assets/reward-images/reward-06.jpg', name: '魔法书房' },
+    { id: 'photo-07', url: 'assets/reward-images/reward-07.jpg', name: '假面舞者' },
+    { id: 'photo-08', url: 'assets/reward-images/reward-08.jpg', name: '夜幕斗篷' },
+    { id: 'photo-09', url: 'assets/reward-images/reward-09.jpg', name: '哥特法师' },
+    { id: 'photo-10', url: 'assets/reward-images/reward-10.jpg', name: '操场日常' },
+    { id: 'photo-11', url: 'assets/reward-images/reward-11.jpg', name: '魔法导师' },
+    { id: 'photo-12', url: 'assets/reward-images/reward-12.jpg', name: '民国讲席' },
+    { id: 'photo-13', url: 'assets/reward-images/reward-13.jpg', name: '赛博行者' },
+    { id: 'photo-14', url: 'assets/reward-images/reward-14.jpg', name: '花园同行' },
+    { id: 'photo-15', url: 'assets/reward-images/reward-15.jpg', name: '洛丽塔花园' },
+    { id: 'photo-16', url: 'assets/reward-images/reward-16.jpg', name: '校长肖像' },
+    { id: 'photo-17', url: 'assets/reward-images/reward-17.jpg', name: '操场晨会' }
   ];
-  var REWARD_CACHE_VERSION = '20260905d'; // 稳定版本号：新增第 17 张奖励图后更新
+  var REWARD_CACHE_VERSION = '20260905f'; // 稳定版本号：图鉴名称与样式更新
   var rewardEntries = [];      // 预加载状态 + 可复用 <img> 对象
   var lastRewardIndex = -1;    // 上一次展示编号，避免连续重复
   var rewardPreload = { total: 0, loaded: 0, failed: 0 };
