@@ -8,6 +8,14 @@
   var THUMB = 256;
   var FACE_CACHE_VERSION = '20260905b'; // 固定资源版本；恢复原图后更新，避免命中旧压缩图缓存
 
+  /* 默认照片清单兜底：即使 manifest 请求被离线/旧缓存干扰，也保证优先使用照片 */
+  var SHARED_PHOTOS = [
+    'photo-01.jpg', 'photo-02.jpg', 'photo-03.jpg', 'photo-04.jpg',
+    'photo-05.jpg', 'photo-06.jpg', 'photo-07.jpg', 'photo-08.jpg',
+    'photo-09.jpg', 'photo-10.jpg', 'photo-11.jpg', 'photo-12.jpg',
+    'photo-13.jpg', 'photo-14.jpg', 'photo-15.jpg', 'photo-16.jpg'
+  ];
+
   /* 内置占位：田园可爱表情 + 柔和底色（内联 SVG data URI，任何情况可玩） */
   var PLACEHOLDERS = [
     { name: '小羊', e: '🐑', c: '#fff3d6' }, { name: '小鸡', e: '🐔', c: '#ffe3d0' },
@@ -120,14 +128,16 @@
 
   /* ---------- manifest（共享照片） ---------- */
   function loadManifest() {
-    /* manifest 本身也走 HTTP 缓存；部署内容通过仓库版本更新 */
-    return fetch('assets/manifest.json', { cache: 'force-cache' })
+    /* manifest 请求带版本并强制校验，避免浏览器长期沿用旧清单 */
+    return fetch('assets/manifest.json?v=' + FACE_CACHE_VERSION, { cache: 'reload' })
       .then(function (r) { if (!r.ok) throw new Error('bad'); return r.json(); })
       .then(function (j) {
-        if (!j || !Array.isArray(j.photos)) throw new Error('bad');
-        return j.photos.filter(function (x) { return typeof x === 'string' && x.length > 0; });
+        var photos = j && Array.isArray(j.photos)
+          ? j.photos.filter(function (x) { return typeof x === 'string' && x.length > 0; })
+          : [];
+        return photos.length ? photos : SHARED_PHOTOS;
       })
-      .catch(function () { return []; });
+      .catch(function () { return SHARED_PHOTOS; });
   }
 
   /* ---------- 对外 API ---------- */
