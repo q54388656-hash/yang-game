@@ -7,6 +7,13 @@
   var DIFF_LABEL = { easy: '简单', normal: '普通', hard: '困难' };
   var TOOL_NAMES = { undo: '撤销', shuffle: '洗牌', hint: '提示', restart: '重开' };
 
+  /* 领取弹窗展示的 16 张照片；每张文件名固定，方便浏览器缓存 */
+  var REWARD_IMAGES = [];
+  for (var rewardIndex = 1; rewardIndex <= 16; rewardIndex++) {
+    REWARD_IMAGES.push('assets/reward-images/reward-' + (rewardIndex < 10 ? '0' : '') + rewardIndex + '.jpg');
+  }
+  var lastRewardImage = ''; // 记录上一次展示的图片，避免连续重复
+
   function $(id) { return document.getElementById(id); }
 
   function bestKey(k) { return 'yang-best-' + k; }
@@ -324,17 +331,27 @@
     if (!silent) toast('获得1次道具机会');
   }
 
+  /* 随机挑选一张奖励照片；上一张已出现时先排除，保证体验更像“换一张” */
+  function pickRewardImage() {
+    if (!REWARD_IMAGES.length) return 'assets/reward-placeholder.jpg';
+    var choices = REWARD_IMAGES.filter(function (url) { return url !== lastRewardImage; });
+    var url = choices[Math.floor(Math.random() * choices.length)];
+    lastRewardImage = url;
+    return url;
+  }
+
   function openClaim(kind) {
     var root = $('claimRoot');
     if (claimState) return;
 
+    var rewardImage = pickRewardImage();
     /* 倒计时用绝对时间计算，后台切走后再回来也不会变成假 10 秒 */
     claimState = { kind: kind, deadline: Date.now() + 10000, timer: null, done: false };
     root.innerHTML =
       '<div class="overlay reward">' +
         '<div class="panel reward-panel">' +
           '<h2>' + TOOL_NAMES[kind] + '道具</h2>' +
-          '<img class="reward-image" src="assets/reward-placeholder.jpg" alt="道具奖励占位图片">' +
+          '<img class="reward-image" src="' + rewardImage + '" alt="道具奖励照片" decoding="async">' +
           '<p class="reward-tip">观看图片 <b id="claimSeconds">10</b> 秒后可领取</p>' +
           '<button class="btn ghost" id="claimClose" disabled>倒计时结束后自动领取</button>' +
         '</div>' +
