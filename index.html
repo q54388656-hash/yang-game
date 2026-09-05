@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="theme-color" content="#8ed6ff">
+<title>叠叠羊 · 羊了个羊同款休闲三消</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 100 100%27%3E%3Ctext y=%27.9em%27 font-size=%2790%27%3E🐑%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div id="app">
+  <!-- 顶栏 -->
+  <header id="topbar">
+    <div class="brand">🐑 <b>叠叠羊</b></div>
+    <span class="chip" id="diffChip">简单</span>
+    <div class="spacer"></div>
+    <span class="hud" id="hudRemain">剩余 --</span>
+    <span class="hud" id="hudMoves">步数 0</span>
+    <button class="icon-btn" id="btnPhoto" title="自定义照片牌面">🖼️</button>
+    <button class="icon-btn" id="btnMute" title="声音开关">🔊</button>
+  </header>
+
+  <!-- 牌面舞台 -->
+  <main id="stage">
+    <div id="boardWrap"><div id="board"></div></div>
+    <div id="toast"></div>
+  </main>
+
+  <!-- 底部卡槽 + 道具 -->
+  <section id="trayZone">
+    <div id="burstLayer"></div>
+    <div class="tray-label">卡槽 <span id="trayCount">0/7</span></div>
+    <div id="tray"></div>
+  </section>
+
+  <nav id="toolbar">
+    <button class="tool" id="toolUndo"><span class="tool-ico">↩️</span>撤销<b class="badge" id="badgeUndo">5</b></button>
+    <button class="tool" id="toolShuffle"><span class="tool-ico">🔄</span>洗牌<b class="badge" id="badgeShuffle">5</b></button>
+    <button class="tool" id="toolHint"><span class="tool-ico">💡</span>提示<b class="badge" id="badgeHint">5</b></button>
+    <button class="tool" id="toolRestart"><span class="tool-ico">🔁</span>重开</button>
+  </nav>
+</div>
+
+<!-- 浮层（菜单 / 胜负） -->
+<div id="overlayRoot"></div>
+<!-- 照片弹窗 -->
+<div id="modalRoot"></div>
+
+<script src="js/core.js"></script>
+<script src="js/assets.js"></script>
+<script src="js/audio.js"></script>
+<script src="js/game.js"></script>
+</body>
+</html>
+
